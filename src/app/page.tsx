@@ -1,64 +1,122 @@
-import Image from "next/image";
+import { supabase } from "@/lib/supabase";
+import styles from "./page.module.css";
 
-export default function Home() {
+// Force dynamic rendering to always fetch latest data
+export const dynamic = 'force-dynamic';
+
+export default async function Home() {
+  // Fetch actual data from Supabase
+  const { data: rawTransactions, error } = await supabase
+    .from('transactions')
+    .select('*, categories(name)')
+    .order('date', { ascending: false });
+
+  const transactions = rawTransactions || [];
+
+  const totalBalance = transactions.reduce((acc, tx) => acc + Number(tx.amount), 0);
+  const totalIncome = transactions.filter(tx => tx.amount > 0).reduce((acc, tx) => acc + Number(tx.amount), 0);
+  const totalExpenses = Math.abs(transactions.filter(tx => tx.amount < 0).reduce((acc, tx) => acc + Number(tx.amount), 0));
+
+  // Get only top 5 for dashboard
+  const recentTransactions = transactions.slice(0, 5);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+    <div className="layout-container">
+      <main className="main-content">
+        <header className={styles.header}>
+          <div className={styles.greeting}>
+            <h1>Overview</h1>
+            <p>Welcome back, Degrayce. Here's your financial status.</p>
+          </div>
+          <button className={styles.addBtn}>+ Add Transaction</button>
+        </header>
+
+        <section className={styles.statsGrid}>
+          <div className="glass-panel">
+            <h3>Total Balance</h3>
+            <p className={styles.statValue}>${totalBalance.toFixed(2)}</p>
+          </div>
+          <div className="glass-panel">
+            <h3>Total Income</h3>
+            <p className={`${styles.statValue} ${styles.income}`}>+${totalIncome.toFixed(2)}</p>
+          </div>
+          <div className="glass-panel">
+            <h3>Total Expenses</h3>
+            <p className={`${styles.statValue} ${styles.expense}`}>-${totalExpenses.toFixed(2)}</p>
+          </div>
+        </section>
+
+        <section className={styles.dashboardContent}>
+          <div className={`glass-panel ${styles.chartSection}`}>
+            <div className={styles.sectionHeader}>
+              <h2>Monthly Spending</h2>
+              <select className={styles.filterSelect}>
+                <option>This Month</option>
+                <option>Last Month</option>
+              </select>
+            </div>
+            {/* Placeholder for actual chart */}
+            <div className={styles.chartPlaceholder}>
+              {transactions.length === 0 ? (
+                <div style={{ width: '100%', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  No data to show yet
+                </div>
+              ) : (
+                <div className={styles.barContainer}>
+                  <div className={styles.bar} style={{ height: '60%', backgroundColor: 'var(--accent-primary)' }}></div>
+                  <div className={styles.bar} style={{ height: '40%', backgroundColor: 'var(--success)' }}></div>
+                  <div className={styles.bar} style={{ height: '80%', backgroundColor: 'var(--danger)' }}></div>
+                  <div className={styles.bar} style={{ height: '50%', backgroundColor: 'var(--warning)' }}></div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className={`glass-panel ${styles.recentTransactions}`}>
+            <div className={styles.sectionHeader}>
+              <h2>Recent Transactions</h2>
+              <a href="/transactions" className={styles.viewAll}>View All</a>
+            </div>
+
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Category</th>
+                  <th>Date</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentTransactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No transactions yet. Add some via Telegram!</td>
+                  </tr>
+                ) : (
+                  recentTransactions.map(tx => {
+                    const dateObj = new Date(tx.date);
+                    const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+                    return (
+                      <tr key={tx.id}>
+                        <td>{tx.description || 'No description'}</td>
+                        <td>
+                          <span className={`${styles.badge} ${tx.amount > 0 ? styles.badgeIncome : styles.badgeExpense}`}>
+                            {tx.categories?.name || 'Unknown'}
+                          </span>
+                        </td>
+                        <td className={styles.dateCell}>{formattedDate}</td>
+                        <td className={tx.amount > 0 ? styles.txIncome : styles.txExpense}>
+                          {tx.amount > 0 ? '+' : ''}{Number(tx.amount).toFixed(2)}$
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </main>
     </div>
   );

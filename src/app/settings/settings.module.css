@@ -1,0 +1,127 @@
+.settingsGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+    .settingsGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.settingsGroup {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.settingsGroup h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.75rem;
+}
+
+.description {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-top: -1rem;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.formGroup label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.input {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color var(--transition-fast);
+}
+
+.input:focus {
+    border-color: var(--accent-primary);
+}
+
+.saveBtn {
+    background-color: var(--accent-primary);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: background-color var(--transition-fast);
+    align-self: flex-start;
+}
+
+.saveBtn:hover {
+    background-color: var(--accent-hover);
+}
+
+.categoryList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.catItem {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    background-color: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+}
+
+.colorPreview {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+}
+
+.catItem span {
+    flex: 1;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.deleteBtn {
+    color: var(--text-secondary);
+    font-size: 1.25rem;
+    font-weight: 300;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.deleteBtn:hover {
+    color: var(--danger);
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+.addCategory {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.addCategory .input {
+    flex: 1;
+}

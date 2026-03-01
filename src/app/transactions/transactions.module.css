@@ -1,0 +1,35 @@
+.transactionsWrapper {
+    padding: 1.5rem;
+}
+
+.filters {
+    display: flex;
+    gap: 1rem;
+    width: 100%;
+}
+
+.searchInput {
+    flex: 1;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color var(--transition-fast);
+}
+
+.searchInput:focus {
+    border-color: var(--accent-primary);
+}
+
+.actionBtn {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.actionBtn:hover {
+    color: var(--text-primary);
+    text-decoration: underline;
+}
