@@ -87,6 +87,11 @@
     color: var(--success);
 }
 
+.activeSavings {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: var(--warning);
+}
+
 .form {
     display: flex;
     flex-direction: column;

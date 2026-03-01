@@ -1,46 +1,54 @@
-/* Modern CSS Reset & Core Variables */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
 :root {
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #141414;
-  --bg-tertiary: #1f1f1f;
-  
+  /* Ultra-Premium Midnight Theme */
+  --bg-primary: #050505;
+  --bg-secondary: #0a0a0b;
+  --bg-tertiary: #121214;
+
   --text-primary: #ffffff;
   --text-secondary: #a1a1aa;
-  
-  --accent-primary: #3b82f6; /* Blue for branding */
-  --accent-hover: #2563eb;
-  
-  --success: #10b981; /* Green for income */
-  --danger: #ef4444; /* Red for expenses */
-  --warning: #f59e0b; /* Orange for savings/alerts */
-  
-  --border-color: #27272a;
-  
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 20px;
-  --radius-full: 9999px;
-  
-  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  
-  --transition-fast: 150ms ease;
-  --transition-normal: 300ms ease;
+
+  /* Neon Accents */
+  --accent-primary: #8b5cf6;
+  /* Vibrant Purple */
+  --accent-hover: #7c3aed;
+
+  /* Financial Colors */
+  --success: #10b981;
+  /* Neon Green */
+  --danger: #ef4444;
+  /* Crimson Red */
+  --warning: #f59e0b;
+  /* Gold/Yellow for Savings */
+
+  --border-color: rgba(255, 255, 255, 0.08);
+
+  --font-sans: 'Outfit', sans-serif;
+
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+
+  --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * {
   box-sizing: border-box;
-  margin: 0;
   padding: 0;
+  margin: 0;
 }
 
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
-  line-height: 1.5;
+  font-family: var(--font-sans);
+  min-height: 100vh;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  background-image:
+    radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.08), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.05), transparent 25%);
 }
 
 a {
@@ -48,18 +56,23 @@ a {
   text-decoration: none;
 }
 
-ul {
-  list-style: none;
+/* Glassmorphism Utilities */
+.glass-panel {
+  background: rgba(18, 18, 20, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  transition: transform var(--transition-smooth), box-shadow var(--transition-smooth);
 }
 
-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
+.glass-panel:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(139, 92, 246, 0.2);
 }
 
-/* Base Utility Classes layout */
 .layout-container {
   display: flex;
   min-height: 100vh;
@@ -70,12 +83,17 @@ button {
   padding: 2rem;
   max-width: 1200px;
   margin: 0 auto;
-  width: 100%;
+  overflow-y: auto;
 }
 
-.glass-panel {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+@media (max-width: 768px) {
+  .layout-container {
+    flex-direction: column;
+  }
+
+  .main-content {
+    padding: 1rem;
+    margin-bottom: 5rem;
+    /* Space for mobile nav */
+  }
 }

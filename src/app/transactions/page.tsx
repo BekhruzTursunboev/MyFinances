@@ -25,8 +25,8 @@ export default async function Transactions() {
             <main className="main-content">
                 <header className={styles.header}>
                     <div className={styles.greeting}>
-                        <h1>All Transactions</h1>
-                        <p>A complete history of your finances.</p>
+                        <h1>Tranzaksiyalar Tarixi</h1>
+                        <p>Barcha moliyaviy amaliyotlaringiz shu yerdan topiladi.</p>
                     </div>
                     <AddTransactionForm categories={categories} />
                 </header>
@@ -34,12 +34,12 @@ export default async function Transactions() {
                 <section className={`glass-panel ${localStyles.transactionsWrapper}`}>
                     <div className={styles.sectionHeader}>
                         <div className={localStyles.filters}>
-                            <input type="text" placeholder="Search transactions..." className={localStyles.searchInput} />
+                            <input type="text" placeholder="Qidirish..." className={localStyles.searchInput} />
                             <select className={styles.filterSelect}>
-                                <option>All Categories</option>
-                                <option>Food</option>
-                                <option>Income</option>
-                                <option>Entertainment</option>
+                                <option>Barcha Kategoriyalar</option>
+                                <option>Oziq-ovqat</option>
+                                <option>Kirim</option>
+                                <option>Jamg'arma</option>
                             </select>
                         </div>
                     </div>
@@ -47,37 +47,53 @@ export default async function Transactions() {
                     <table className={styles.table}>
                         <thead>
                             <tr>
-                                <th>Description</th>
-                                <th>Category</th>
-                                <th>Date</th>
-                                <th>Amount</th>
-                                <th>Action</th>
+                                <th>Ta'rifi</th>
+                                <th>Kategoriya</th>
+                                <th>Sana</th>
+                                <th>Summa</th>
+                                <th>Harakat</th>
                             </tr>
                         </thead>
                         <tbody>
                             {allTransactions.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>No transactions yet. Add some via Telegram!</td>
+                                    <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                                        Hech qanday tranzaksiya mavjud emas.
+                                    </td>
                                 </tr>
                             ) : (
                                 allTransactions.map(tx => {
                                     const dateObj = new Date(tx.date);
-                                    const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                    const formattedDate = dateObj.toLocaleDateString('uz-UZ', { month: 'short', day: 'numeric', year: 'numeric' });
+
+                                    let rowStyle = styles.txExpense;
+                                    let badgeClass = styles.badgeExpense;
+                                    let prefix = '-';
+
+                                    if (tx.type === 'income') {
+                                        rowStyle = styles.txIncome;
+                                        badgeClass = styles.badgeIncome;
+                                        prefix = '+';
+                                    } else if (tx.type === 'savings') {
+                                        rowStyle = styles.txSavings;
+                                        badgeClass = styles.badgeSavings;
+                                        prefix = '🏦 ';
+                                    }
 
                                     return (
-                                        <tr key={tx.id}>
-                                            <td>{tx.description || 'No description'}</td>
+                                        <tr key={tx.id} className={styles.tableRow}>
+                                            <td>{tx.description || 'Izohsiz'}</td>
                                             <td>
-                                                <span className={`${styles.badge} ${tx.amount > 0 ? styles.badgeIncome : styles.badgeExpense}`}>
-                                                    {tx.categories?.name || 'Unknown'}
+                                                <span className={`${styles.badge} ${badgeClass}`}>
+                                                    {tx.categories?.name || 'Noma\'lum'}
                                                 </span>
                                             </td>
                                             <td className={styles.dateCell}>{formattedDate}</td>
-                                            <td className={tx.amount > 0 ? styles.txIncome : styles.txExpense}>
-                                                {tx.amount > 0 ? '+' : ''}{Number(tx.amount).toFixed(2)}$
+                                            <td className={rowStyle}>
+                                                {prefix}{Math.abs(Number(tx.amount)).toLocaleString('uz-UZ')} UZS
                                             </td>
                                             <td>
-                                                <button className={localStyles.actionBtn}>Edit</button>
+                                                <button className={localStyles.actionBtn}>Tahrirlash</button>
                                             </td>
                                         </tr>
                                     )

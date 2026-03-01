@@ -7,13 +7,13 @@ import styles from './addTransaction.module.css';
 type Category = {
     id: string;
     name: string;
-    type: 'income' | 'expense';
+    type: 'income' | 'expense' | 'savings';
 };
 
 export default function AddTransactionForm({ categories }: { categories: Category[] }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [type, setType] = useState<'expense' | 'income'>('expense');
+    const [type, setType] = useState<'expense' | 'income' | 'savings'>('expense');
 
     async function handleSubmit(formData: FormData) {
         setIsSubmitting(true);
@@ -30,14 +30,14 @@ export default function AddTransactionForm({ categories }: { categories: Categor
     return (
         <>
             <button className={styles.addBtn} onClick={() => setIsOpen(true)}>
-                + Add Transaction
+                + Yangi Tranzaksiya
             </button>
 
             {isOpen && (
                 <div className={styles.modalOverlay} onClick={() => setIsOpen(false)}>
                     <div className={`glass-panel ${styles.modalContent}`} onClick={e => e.stopPropagation()}>
                         <div className={styles.modalHeader}>
-                            <h2>Add Transaction</h2>
+                            <h2>Yangi Amaliyot</h2>
                             <button className={styles.closeBtn} onClick={() => setIsOpen(false)}>×</button>
                         </div>
 
@@ -47,48 +47,55 @@ export default function AddTransactionForm({ categories }: { categories: Categor
                                 className={`${styles.typeBtn} ${type === 'expense' ? styles.activeExpense : ''}`}
                                 onClick={() => setType('expense')}
                             >
-                                Expense
+                                🔴 Chiqim
                             </button>
                             <button
                                 type="button"
                                 className={`${styles.typeBtn} ${type === 'income' ? styles.activeIncome : ''}`}
                                 onClick={() => setType('income')}
                             >
-                                Income
+                                🟢 Kirim
+                            </button>
+                            <button
+                                type="button"
+                                className={`${styles.typeBtn} ${type === 'savings' ? styles.activeSavings : ''}`}
+                                onClick={() => setType('savings')}
+                            >
+                                🏦 Jamg'arma
                             </button>
                         </div>
 
                         <form action={handleSubmit} className={styles.form}>
                             <div className={styles.formGroup}>
-                                <label>Amount ($)</label>
-                                <input type="number" step="0.01" name="amount" required className={styles.input} placeholder="0.00" />
+                                <label>Miqdor (UZS)</label>
+                                <input type="number" step="1000" name="amount" required className={styles.input} placeholder="50000" />
                             </div>
 
                             <div className={styles.formGroup}>
-                                <label>Category</label>
+                                <label>Kategoriya</label>
                                 <select name="category_id" required className={styles.input}>
                                     {filteredCategories.length > 0 ? (
                                         filteredCategories.map(cat => (
                                             <option key={cat.id} value={cat.id}>{cat.name}</option>
                                         ))
                                     ) : (
-                                        <option value="">No categories available</option>
+                                        <option value="">Ushbu turdagi teglar yo'q</option>
                                     )}
                                 </select>
                             </div>
 
                             <div className={styles.formGroup}>
-                                <label>Description (Optional)</label>
-                                <input type="text" name="description" className={styles.input} placeholder="What was this for?" />
+                                <label>Izoh (Ixtiyoriy)</label>
+                                <input type="text" name="description" className={styles.input} placeholder="Nima uchun ketdi?" />
                             </div>
 
                             <div className={styles.formGroup}>
-                                <label>Date</label>
+                                <label>Sana</label>
                                 <input type="date" name="date" required className={styles.input} defaultValue={new Date().toISOString().split('T')[0]} />
                             </div>
 
                             <button type="submit" className={styles.submitBtn} disabled={isSubmitting || filteredCategories.length === 0}>
-                                {isSubmitting ? 'Saving...' : 'Save Transaction'}
+                                {isSubmitting ? 'Saqlanmoqda...' : 'Saqlash'}
                             </button>
                         </form>
                     </div>

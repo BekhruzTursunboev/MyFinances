@@ -6,7 +6,6 @@ import AddTransactionForm from "@/components/AddTransactionForm";
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  // Fetch actual data from Supabase
   const { data: rawTransactions, error } = await supabase
     .from('transactions')
     .select('*, categories(name)')
@@ -21,9 +20,12 @@ export default async function Home() {
   const transactions = rawTransactions || [];
   const categories = rawCategories || [];
 
-  const totalBalance = transactions.reduce((acc, tx) => acc + Number(tx.amount), 0);
-  const totalIncome = transactions.filter(tx => tx.amount > 0).reduce((acc, tx) => acc + Number(tx.amount), 0);
-  const totalExpenses = Math.abs(transactions.filter(tx => tx.amount < 0).reduce((acc, tx) => acc + Number(tx.amount), 0));
+  const totalIncome = transactions.filter(tx => tx.type === 'income').reduce((acc, tx) => acc + Number(tx.amount), 0);
+  const totalExpenses = Math.abs(transactions.filter(tx => tx.type === 'expense').reduce((acc, tx) => acc + Number(tx.amount), 0));
+  const totalSavings = transactions.filter(tx => tx.type === 'savings').reduce((acc, tx) => acc + Math.abs(Number(tx.amount)), 0);
+
+  // Effective checking balance
+  const totalBalance = totalIncome - totalExpenses - totalSavings;
 
   // Get only top 5 for dashboard
   const recentTransactions = transactions.slice(0, 5);
@@ -33,48 +35,91 @@ export default async function Home() {
       <main className="main-content">
         <header className={styles.header}>
           <div className={styles.greeting}>
-            <h1>Overview</h1>
-            <p>Welcome back, Degrayce. Here's your financial status.</p>
+            <h1>Bosh Sahifa</h1>
+            <p>Xush kelibsiz, Degrayce. Moliyaviy xulosangiz.</p>
           </div>
           <AddTransactionForm categories={categories} />
         </header>
 
         <section className={styles.statsGrid}>
-          <div className="glass-panel">
-            <h3>Total Balance</h3>
-            <p className={styles.statValue}>${totalBalance.toFixed(2)}</p>
+          <div className={`glass-panel ${styles.statCard}`}>
+            <div className={styles.statHeader}>
+              <div className={styles.statIconWrapper} style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)', color: 'var(--accent-primary)' }}>
+                💰
+              </div>
+              <span className={styles.statTrend}>+2.4%</span>
+            </div>
+            <h3>Umumiy Balans</h3>
+            <p className={styles.statValue}>{totalBalance.toLocaleString('uz-UZ')} UZS</p>
           </div>
-          <div className="glass-panel">
-            <h3>Total Income</h3>
-            <p className={`${styles.statValue} ${styles.income}`}>+${totalIncome.toFixed(2)}</p>
+
+          <div className={`glass-panel ${styles.statCard}`}>
+            <div className={styles.statHeader}>
+              <div className={styles.statIconWrapper} style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)' }}>
+                📈
+              </div>
+            </div>
+            <h3>Jami Kirim</h3>
+            <p className={`${styles.statValue} ${styles.income}`}>+{totalIncome.toLocaleString('uz-UZ')} UZS</p>
           </div>
-          <div className="glass-panel">
-            <h3>Total Expenses</h3>
-            <p className={`${styles.statValue} ${styles.expense}`}>-${totalExpenses.toFixed(2)}</p>
+
+          <div className={`glass-panel ${styles.statCard}`}>
+            <div className={styles.statHeader}>
+              <div className={styles.statIconWrapper} style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)' }}>
+                📉
+              </div>
+            </div>
+            <h3>Jami Chiqim</h3>
+            <p className={`${styles.statValue} ${styles.expense}`}>-{totalExpenses.toLocaleString('uz-UZ')} UZS</p>
+          </div>
+
+          <div className={`glass-panel ${styles.statCard} ${styles.savingsCard}`}>
+            <div className={styles.statHeader}>
+              <div className={styles.statIconWrapper} style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)' }}>
+                🏦
+              </div>
+              <span className={styles.savingsLabel}>Muxim!</span>
+            </div>
+            <h3>Jamg'arma (Alohida)</h3>
+            <p className={`${styles.statValue} ${styles.savings}`}>{totalSavings.toLocaleString('uz-UZ')} UZS</p>
           </div>
         </section>
 
         <section className={styles.dashboardContent}>
           <div className={`glass-panel ${styles.chartSection}`}>
             <div className={styles.sectionHeader}>
-              <h2>Monthly Spending</h2>
-              <select className={styles.filterSelect}>
-                <option>This Month</option>
-                <option>Last Month</option>
-              </select>
+              <h2>Oylik Xarajatlar Oqimi</h2>
             </div>
-            {/* Placeholder for actual chart */}
+            {/* Functional relative bar chart based on actual values */}
             <div className={styles.chartPlaceholder}>
               {transactions.length === 0 ? (
                 <div style={{ width: '100%', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                  No data to show yet
+                  Hali ma'lumot yo'q. Telegram bot orqali kiriting!
                 </div>
               ) : (
                 <div className={styles.barContainer}>
-                  <div className={styles.bar} style={{ height: '60%', backgroundColor: 'var(--accent-primary)' }}></div>
-                  <div className={styles.bar} style={{ height: '40%', backgroundColor: 'var(--success)' }}></div>
-                  <div className={styles.bar} style={{ height: '80%', backgroundColor: 'var(--danger)' }}></div>
-                  <div className={styles.bar} style={{ height: '50%', backgroundColor: 'var(--warning)' }}></div>
+                  {[totalIncome, totalExpenses, totalSavings].map((val, idx) => {
+                    const max = Math.max(totalIncome, totalExpenses, totalSavings) || 1;
+                    const heightPercentage = Math.max(10, (val / max) * 100);
+                    const colors = ['var(--success)', 'var(--danger)', 'var(--warning)'];
+                    const labels = ['Kirim', 'Chiqim', 'Jamg\'arma'];
+
+                    return (
+                      <div key={idx} className={styles.barGroup}>
+                        <div className={styles.barTrack}>
+                          <div
+                            className={styles.bar}
+                            style={{
+                              height: `${heightPercentage}%`,
+                              backgroundColor: colors[idx],
+                              boxShadow: `0 0 15px ${colors[idx]}40`
+                            }}
+                          ></div>
+                        </div>
+                        <span className={styles.barLabel}>{labels[idx]}</span>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -82,40 +127,56 @@ export default async function Home() {
 
           <div className={`glass-panel ${styles.recentTransactions}`}>
             <div className={styles.sectionHeader}>
-              <h2>Recent Transactions</h2>
-              <a href="/transactions" className={styles.viewAll}>View All</a>
+              <h2>So'nggi Amaliyotlar</h2>
+              <a href="/transactions" className={styles.viewAll}>Hammasini ko'rish &rarr;</a>
             </div>
 
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>Description</th>
-                  <th>Category</th>
-                  <th>Date</th>
-                  <th>Amount</th>
+                  <th>Ta'rifi</th>
+                  <th>Kategoriya</th>
+                  <th>Sana</th>
+                  <th>Summa</th>
                 </tr>
               </thead>
               <tbody>
                 {recentTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No transactions yet. Add some via Telegram!</td>
+                    <td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                      Tranzaksiyalar mavjud emas.
+                    </td>
                   </tr>
                 ) : (
                   recentTransactions.map(tx => {
                     const dateObj = new Date(tx.date);
-                    const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    const formattedDate = dateObj.toLocaleDateString('uz-UZ', { month: 'short', day: 'numeric', year: 'numeric' });
+
+                    let rowStyle = styles.txExpense;
+                    let badgeClass = styles.badgeExpense;
+                    let prefix = '-';
+
+                    if (tx.type === 'income') {
+                      rowStyle = styles.txIncome;
+                      badgeClass = styles.badgeIncome;
+                      prefix = '+';
+                    } else if (tx.type === 'savings') {
+                      rowStyle = styles.txSavings;
+                      badgeClass = styles.badgeSavings;
+                      prefix = '🏦 ';
+                    }
 
                     return (
-                      <tr key={tx.id}>
-                        <td>{tx.description || 'No description'}</td>
+                      <tr key={tx.id} className={styles.tableRow}>
+                        <td>{tx.description || 'Izohsiz'}</td>
                         <td>
-                          <span className={`${styles.badge} ${tx.amount > 0 ? styles.badgeIncome : styles.badgeExpense}`}>
-                            {tx.categories?.name || 'Unknown'}
+                          <span className={`${styles.badge} ${badgeClass}`}>
+                            {tx.categories?.name || 'Noma\'lum'}
                           </span>
                         </td>
                         <td className={styles.dateCell}>{formattedDate}</td>
-                        <td className={tx.amount > 0 ? styles.txIncome : styles.txExpense}>
-                          {tx.amount > 0 ? '+' : ''}{Number(tx.amount).toFixed(2)}$
+                        <td className={rowStyle}>
+                          {prefix}{Math.abs(Number(tx.amount)).toLocaleString('uz-UZ')} UZS
                         </td>
                       </tr>
                     );

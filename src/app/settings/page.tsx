@@ -1,67 +1,76 @@
+import { supabase } from "@/lib/supabase";
 import styles from "../page.module.css";
 import localStyles from "./settings.module.css";
 
-export default function Settings() {
+export const dynamic = 'force-dynamic';
+
+export default async function Settings() {
+    const { data: categories } = await supabase
+        .from('categories')
+        .select('*')
+        .order('type')
+        .order('name');
+
     return (
         <div className="layout-container">
             <main className="main-content">
                 <header className={styles.header}>
                     <div className={styles.greeting}>
-                        <h1>Settings</h1>
-                        <p>Manage your preferences and categories.</p>
+                        <h1>Sozlamalar</h1>
+                        <p>Profilingiz va tizim sozlamalarini boshqaring.</p>
                     </div>
                 </header>
 
-                <section className={localStyles.settingsGrid}>
-                    <div className={`glass-panel ${localStyles.settingsGroup}`}>
-                        <h2>Profile</h2>
-                        <div className={localStyles.formGroup}>
-                            <label>Name</label>
-                            <input type="text" defaultValue="Degrayce Cheso" className={localStyles.input} />
-                        </div>
-                        <div className={localStyles.formGroup}>
-                            <label>Email</label>
-                            <input type="email" defaultValue="degrayce@example.com" className={localStyles.input} />
-                        </div>
-                        <button className={localStyles.saveBtn}>Save Changes</button>
+                <section className={localStyles.settingsLayout}>
+                    <div className={`glass-panel ${localStyles.settingsPanel}`}>
+                        <h2>Profil Sozlamalari</h2>
+                        <form className={localStyles.form}>
+                            <div className={localStyles.formGroup}>
+                                <label>Foydalanuvchi Ismi</label>
+                                <input type="text" defaultValue="Degrayce" className={localStyles.input} />
+                            </div>
+                            <div className={localStyles.formGroup}>
+                                <label>Elektron Pochta</label>
+                                <input type="email" defaultValue="admin@myfinance.uz" className={localStyles.input} />
+                            </div>
+                            <div className={localStyles.formGroup}>
+                                <label>Asosiy Valyuta</label>
+                                <select className={localStyles.input}>
+                                    <option>Uzbekistan Som (UZS)</option>
+                                    <option>US Dollar (USD)</option>
+                                </select>
+                            </div>
+                            <button type="submit" className={localStyles.saveBtn}>O'zgarishlarni Saqlash</button>
+                        </form>
                     </div>
 
-                    <div className={`glass-panel ${localStyles.settingsGroup}`}>
-                        <h2>Categories</h2>
-                        <p className={localStyles.description}>Manage tags for your transactions.</p>
-                        <ul className={localStyles.categoryList}>
-                            <li>
-                                <div className={localStyles.catItem}>
-                                    <div className={localStyles.colorPreview} style={{ backgroundColor: 'var(--success)' }}></div>
-                                    <span>Income</span>
-                                    <button className={localStyles.deleteBtn}>×</button>
+                    <div className={`glass-panel ${localStyles.settingsPanel}`}>
+                        <h2>Mavjud Kategoriyalar</h2>
+                        <p className={localStyles.description}>Bot yoki sayt orqali foydalaniladigan teglar.</p>
+
+                        <div className={localStyles.categoryList}>
+                            {categories?.map(cat => (
+                                <div key={cat.id} className={localStyles.categoryItem}>
+                                    <div className={localStyles.catInfo}>
+                                        <div className={localStyles.colorPreview} style={{ backgroundColor: cat.color }}></div>
+                                        <span className={localStyles.catName}>{cat.name}</span>
+                                        <span className={localStyles.catType}>
+                                            {cat.type === 'income' ? 'Kirim' : cat.type === 'savings' ? 'Jamg\'arma' : 'Chiqim'}
+                                        </span>
+                                    </div>
+                                    <button className={localStyles.deleteBtn}>O'chirish</button>
                                 </div>
-                            </li>
-                            <li>
-                                <div className={localStyles.catItem}>
-                                    <div className={localStyles.colorPreview} style={{ backgroundColor: 'var(--danger)' }}></div>
-                                    <span>Food</span>
-                                    <button className={localStyles.deleteBtn}>×</button>
-                                </div>
-                            </li>
-                            <li>
-                                <div className={localStyles.catItem}>
-                                    <div className={localStyles.colorPreview} style={{ backgroundColor: 'var(--warning)' }}></div>
-                                    <span>Entertainment</span>
-                                    <button className={localStyles.deleteBtn}>×</button>
-                                </div>
-                            </li>
-                            <li>
-                                <div className={localStyles.catItem}>
-                                    <div className={localStyles.colorPreview} style={{ backgroundColor: 'var(--accent-primary)' }}></div>
-                                    <span>Utilities</span>
-                                    <button className={localStyles.deleteBtn}>×</button>
-                                </div>
-                            </li>
-                        </ul>
-                        <div className={localStyles.addCategory}>
-                            <input type="text" placeholder="New category name" className={localStyles.input} />
-                            <button className={localStyles.saveBtn}>Add</button>
+                            ))}
+
+                            <div className={localStyles.addCategory}>
+                                <input type="text" placeholder="Yangi kategoriya..." className={localStyles.input} />
+                                <select className={localStyles.input} style={{ width: 'auto' }}>
+                                    <option value="expense">Chiqim</option>
+                                    <option value="income">Kirim</option>
+                                    <option value="savings">Jamg'arma</option>
+                                </select>
+                                <button className={localStyles.addBtn}>Qo'shish</button>
+                            </div>
                         </div>
                     </div>
                 </section>
