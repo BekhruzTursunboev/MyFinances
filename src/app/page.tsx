@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import styles from "./page.module.css";
+import AddTransactionForm from "@/components/AddTransactionForm";
 
 // Force dynamic rendering to always fetch latest data
 export const dynamic = 'force-dynamic';
@@ -11,7 +12,14 @@ export default async function Home() {
     .select('*, categories(name)')
     .order('date', { ascending: false });
 
+  // Fetch categories for the Add transaction form
+  const { data: rawCategories } = await supabase
+    .from('categories')
+    .select('*')
+    .order('name');
+
   const transactions = rawTransactions || [];
+  const categories = rawCategories || [];
 
   const totalBalance = transactions.reduce((acc, tx) => acc + Number(tx.amount), 0);
   const totalIncome = transactions.filter(tx => tx.amount > 0).reduce((acc, tx) => acc + Number(tx.amount), 0);
@@ -28,7 +36,7 @@ export default async function Home() {
             <h1>Overview</h1>
             <p>Welcome back, Degrayce. Here's your financial status.</p>
           </div>
-          <button className={styles.addBtn}>+ Add Transaction</button>
+          <AddTransactionForm categories={categories} />
         </header>
 
         <section className={styles.statsGrid}>

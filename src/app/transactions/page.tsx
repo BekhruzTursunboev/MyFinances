@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import styles from "../page.module.css";
 import localStyles from "./transactions.module.css";
+import AddTransactionForm from "@/components/AddTransactionForm";
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +11,14 @@ export default async function Transactions() {
         .select('*, categories(name)')
         .order('date', { ascending: false });
 
+    // Fetch categories for the Add transaction form
+    const { data: rawCategories } = await supabase
+        .from('categories')
+        .select('*')
+        .order('name');
+
     const allTransactions = rawTransactions || [];
+    const categories = rawCategories || [];
 
     return (
         <div className="layout-container">
@@ -20,7 +28,7 @@ export default async function Transactions() {
                         <h1>All Transactions</h1>
                         <p>A complete history of your finances.</p>
                     </div>
-                    <button className={styles.addBtn}>+ Add Transaction</button>
+                    <AddTransactionForm categories={categories} />
                 </header>
 
                 <section className={`glass-panel ${localStyles.transactionsWrapper}`}>
