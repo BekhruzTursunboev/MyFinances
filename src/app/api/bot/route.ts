@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { bot } from '@/lib/bot';
 
+// Prevent Next.js from trying to statically generate this route during `next build`
+// because it requires environment variables that only exist at runtime in Vercel.
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
     try {
         const body = await req.json();
