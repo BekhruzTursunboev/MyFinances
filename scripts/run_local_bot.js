@@ -7,7 +7,19 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 // Using dynamic import to skip TS compilation locally since we already built it
-require('ts-node').register({ transpileOnly: true });
+const tsConfig = require('../tsconfig.json');
+const tsConfigPaths = require('tsconfig-paths');
+
+tsConfigPaths.register({
+    baseUrl: './',
+    paths: tsConfig.compilerOptions.paths
+});
+
+require('ts-node').register({
+    transpileOnly: true,
+    compilerOptions: { module: 'commonjs', moduleResolution: 'node' }
+});
+
 const { bot } = require('../src/lib/bot.ts');
 
 bot.telegram.deleteWebhook().then(() => {

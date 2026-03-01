@@ -16,7 +16,8 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "telegraf": "^4.16.3",
-    "telegraf-session-local": "^2.1.1"
+    "telegraf-session-local": "^2.1.1",
+    "tsconfig-paths": "^4.2.0"
   },
   "devDependencies": {
     "@types/node": "^20",

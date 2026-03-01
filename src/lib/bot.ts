@@ -1,6 +1,6 @@
 import { Telegraf, Markup, Context } from 'telegraf';
 import LocalSession from 'telegraf-session-local';
-import { supabase } from '@/lib/supabase';
+import { supabase } from './supabase';
 
 // Define custom session context
 interface SessionData {
