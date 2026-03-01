@@ -55,6 +55,7 @@ bot.help((ctx) => {
 // ==========================================
 
 bot.action('add_savings', async (ctx) => {
+    await ctx.answerCbQuery();
     ctx.session.step = 'waiting_for_kopilka_amount';
     await ctx.editMessageText('🏦 <b>Kopilkaga qancha pul tashlaymiz?</b>\n\n<i>Faqat raqam yozing:</i>', { parse_mode: 'HTML' });
 });
@@ -64,12 +65,14 @@ bot.action('add_savings', async (ctx) => {
 // ==========================================
 
 bot.action('add_expense', async (ctx) => {
+    await ctx.answerCbQuery();
     ctx.session.step = 'waiting_for_amount';
     ctx.session.pendingType = 'expense';
     await ctx.editMessageText('🔴 <b>Xarajat miqdorini yozing:</b>\n\n<i>Faqat raqam kiriting (masalan: 50000):</i>', { parse_mode: 'HTML' });
 });
 
 bot.action('add_income', async (ctx) => {
+    await ctx.answerCbQuery();
     ctx.session.step = 'waiting_for_amount';
     ctx.session.pendingType = 'income';
     await ctx.editMessageText('🟢 <b>Daromad miqdorini yozing:</b>\n\n<i>Faqat raqam kiriting (masalan: 1000000):</i>', { parse_mode: 'HTML' });
@@ -202,6 +205,7 @@ bot.on('text', async (ctx) => {
 
 // Handlers for "Siz kiritdingiz, endi tanlang" buttons
 bot.action(/sel_type_(.+)/, async (ctx) => {
+    await ctx.answerCbQuery();
     const type = ctx.match[1] as 'expense' | 'income' | 'savings';
     const amount = ctx.session.pendingAmount;
 
@@ -231,6 +235,7 @@ bot.action(/sel_type_(.+)/, async (ctx) => {
 
 // Category selected from inline list
 bot.action(/chose_cat_(.+)/, async (ctx) => {
+    await ctx.answerCbQuery();
     const catName = ctx.match[1];
     const type = ctx.session.pendingType;
 
@@ -257,6 +262,7 @@ bot.action(/chose_cat_(.+)/, async (ctx) => {
 
 // Skip Description Button
 bot.action('skip_description', async (ctx) => {
+    await ctx.answerCbQuery();
     const type = ctx.session.pendingType!;
     const amount = ctx.session.pendingAmount!;
     const finalAmount = type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
@@ -279,6 +285,7 @@ bot.action('skip_description', async (ctx) => {
 // ==========================================
 
 bot.action('show_stats', async (ctx) => {
+    await ctx.answerCbQuery();
     try {
         const { data, error } = await supabase.from('transactions').select('amount, type');
         if (error) throw error;
@@ -292,10 +299,10 @@ bot.action('show_stats', async (ctx) => {
         ctx.editMessageText(
             `<blockquote>📊 <b>Sizning Moliyaviy Holatingiz:</b></blockquote>\n\n` +
             `💰 <b>Hozirgi Balans:</b> ${total.toLocaleString('uz-UZ')} UZS\n\n` +
-            `📈 <b>Jami Kirim:</b> <tg-emoji emoji-id="5368324170671202286">🟢</tg-emoji> +${income.toLocaleString('uz-UZ')} UZS\n` +
-            `📉 <b>Jami Chiqim:</b> <tg-emoji emoji-id="5368324170671202286">🔴</tg-emoji> -${expenses.toLocaleString('uz-UZ')} UZS\n` +
-            `🏦 <b>Jamg'arma (Kopilka):</b> <tg-emoji emoji-id="5368324170671202286">🟡</tg-emoji> ${savings.toLocaleString('uz-UZ')} UZS\n\n` +
-            `<i><tg-date date="${Math.floor(Date.now() / 1000)}">Bugun, {time}</tg-date> da yangilandi</i>`,
+            `📈 <b>Jami Kirim:</b> 🟢 +${income.toLocaleString('uz-UZ')} UZS\n` +
+            `📉 <b>Jami Chiqim:</b> 🔴 -${expenses.toLocaleString('uz-UZ')} UZS\n` +
+            `🏦 <b>Jamg'arma (Kopilka):</b> 🟡 ${savings.toLocaleString('uz-UZ')} UZS\n\n` +
+            `<i>Bugun, ${new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })} da yangilandi</i>`,
             { parse_mode: 'HTML' }
         );
     } catch (e) {
@@ -304,6 +311,7 @@ bot.action('show_stats', async (ctx) => {
 });
 
 bot.action('show_history', async (ctx) => {
+    await ctx.answerCbQuery();
     try {
         const { data, error } = await supabase
             .from('transactions')
@@ -320,9 +328,9 @@ bot.action('show_history', async (ctx) => {
             const catType = tx.categories?.type || 'expense';
 
             const icon = catType === 'income' ? '🟢' : catType === 'savings' ? '🏦' : '🔴';
-            const unixDate = Math.floor(new Date(tx.date).getTime() / 1000);
+            const dateStr = new Date(tx.date).toLocaleDateString('uz-UZ', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-            msg += `${icon} <b>${Math.abs(tx.amount).toLocaleString('uz-UZ')}</b> • #${catName} • <i><tg-date date="${unixDate}">{time}</tg-date></i>\n`;
+            msg += `${icon} <b>${Math.abs(tx.amount).toLocaleString('uz-UZ')}</b> • #${catName} • <i>${dateStr}</i>\n`;
             if (tx.description) msg += `   └ <i>${tx.description}</i>\n\n`;
         });
 
