@@ -20,9 +20,11 @@ const COLOR = {
 };
 
 // Helper to build a colored inline button (raw API 9.4 payload)
-const colorBtn = (text: string, callback_data: string, color?: number): any => {
+const colorBtn = (text: string, callback_data: string, bg?: number): any => {
     const btn: any = { text, callback_data };
-    if (color !== undefined) btn.color = color;
+    if (bg !== undefined) {
+        btn.style = { background_color: bg };
+    }
     return btn;
 };
 
