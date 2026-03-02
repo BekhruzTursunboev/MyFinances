@@ -12,9 +12,9 @@ const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!);
 // Omit style = default Telegram blue/accent
 
 const STYLE = {
-    RED: 'destructive',   // Expense — red button
-    GREEN: 'constructive',  // Income — green button
-    GRAY: 'secondary',     // Neutral — gray button
+    RED: 'danger',       // Expense — red button
+    GREEN: 'success',    // Income — green button
+    BLUE: 'primary',     // Info — blue button
 };
 
 // Helper to build a styled inline button (raw API 9.4 payload)
@@ -44,7 +44,7 @@ const showMainMenu = async (ctx: Context) => {
                     ],
                     [
                         styledBtn("📊 Statistika", "show_stats"),
-                        styledBtn("🕒 Tarix", "show_history", STYLE.GRAY)
+                        styledBtn("🕒 Tarix", "show_history")
                     ],
                     [
                         styledBtn("📈 Haftalik Hisobot", "weekly_report", STYLE.GREEN)
@@ -301,7 +301,7 @@ bot.on('text', async (ctx) => {
                                 styledBtn('🟢 Kirim', `sel_type_income_${amount}`, STYLE.GREEN)
                             ],
                             [styledBtn('🏦 Kopilkaga', `sel_type_savings_${amount}`)],
-                            [styledBtn('❌ Bekor qilish', 'cancel_action', STYLE.GRAY)]
+                            [styledBtn('❌ Bekor qilish', 'cancel_action')]
                         ]
                     }
                 }
@@ -425,7 +425,7 @@ bot.action('weekly_report', async (ctx) => {
                     inline_keyboard: [
                         [
                             styledBtn("📊 To'liq Statistika", "show_stats"),
-                            styledBtn("🏠 Bosh menyu", "go_home", STYLE.GRAY)
+                            styledBtn("🏠 Bosh menyu", "go_home")
                         ]
                     ]
                 }
