@@ -282,4 +282,34 @@
     .greeting h1 {
         font-size: 1.5rem;
     }
+
+    .statsGrid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .statCard h3 {
+        font-size: 0.75rem;
+    }
+
+    .statValue {
+        font-size: 1.25rem;
+    }
+
+    .statIconWrapper {
+        width: 32px;
+        height: 32px;
+        font-size: 1rem;
+    }
+
+    .table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 480px) {
+    .statsGrid {
+        grid-template-columns: 1fr;
+    }
 }
