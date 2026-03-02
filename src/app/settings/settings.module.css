@@ -1,127 +1,185 @@
-.settingsGrid {
+.settingsLayout {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
 }
 
 @media (max-width: 1024px) {
-    .settingsGrid {
+    .settingsLayout {
         grid-template-columns: 1fr;
     }
 }
 
-.settingsGroup {
+.settingsPanel {
     padding: 1.5rem;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1.25rem;
 }
 
-.settingsGroup h2 {
-    font-size: 1.25rem;
+.settingsPanel h2 {
+    font-size: 1.1rem;
     font-weight: 600;
-    border-bottom: 1px solid var(--border-color);
+    letter-spacing: -0.02em;
     padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .description {
     color: var(--text-secondary);
-    font-size: 0.875rem;
-    margin-top: -1rem;
+    font-size: 0.85rem;
+    margin-top: -0.5rem;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
 }
 
 .formGroup {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.4rem;
 }
 
 .formGroup label {
-    font-size: 0.875rem;
+    font-size: 0.8rem;
     font-weight: 500;
-    color: var(--text-secondary);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .input {
     background: var(--bg-tertiary);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
-    padding: 0.75rem 1rem;
+    padding: 0.7rem 0.9rem;
     border-radius: var(--radius-sm);
-    font-size: 0.875rem;
+    font-size: 0.9rem;
+    font-family: inherit;
     outline: none;
     transition: border-color var(--transition-fast);
 }
 
 .input:focus {
-    border-color: var(--accent-primary);
+    border-color: var(--text-secondary);
 }
 
 .saveBtn {
-    background-color: var(--accent-primary);
-    color: white;
-    padding: 0.75rem 1.5rem;
-    border-radius: var(--radius-md);
+    background-color: var(--text-primary);
+    color: var(--bg-primary);
+    padding: 0.6rem 1.25rem;
+    border-radius: var(--radius-sm);
     font-weight: 600;
-    font-size: 0.875rem;
-    transition: background-color var(--transition-fast);
+    font-size: 0.85rem;
+    transition: opacity var(--transition-fast);
     align-self: flex-start;
+    cursor: pointer;
+    border: none;
 }
 
 .saveBtn:hover {
-    background-color: var(--accent-hover);
+    opacity: 0.85;
 }
 
 .categoryList {
     display: flex;
     flex-direction: column;
+    gap: 0.5rem;
+}
+
+.categoryItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background-color: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    transition: border-color var(--transition-fast);
+}
+
+.categoryItem:hover {
+    border-color: var(--border-light);
+}
+
+.catInfo {
+    display: flex;
+    align-items: center;
     gap: 0.75rem;
 }
 
-.catItem {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem;
-    background-color: var(--bg-tertiary);
-    border-radius: var(--radius-sm);
-}
-
 .colorPreview {
-    width: 16px;
-    height: 16px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
+    flex-shrink: 0;
 }
 
-.catItem span {
-    flex: 1;
-    font-size: 0.875rem;
+.catName {
+    font-size: 0.9rem;
     font-weight: 500;
 }
 
+.catType {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-left: 0.5rem;
+}
+
 .deleteBtn {
-    color: var(--text-secondary);
-    font-size: 1.25rem;
-    font-weight: 300;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 0.3rem 0.6rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
 }
 
 .deleteBtn:hover {
     color: var(--danger);
-    background-color: rgba(239, 68, 68, 0.1);
+    border-color: rgba(229, 72, 77, 0.2);
+    background: rgba(229, 72, 77, 0.05);
 }
 
 .addCategory {
     display: flex;
-    gap: 1rem;
-    margin-top: 1rem;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
 }
 
 .addCategory .input {
     flex: 1;
+}
+
+.addBtn {
+    background-color: var(--text-primary);
+    color: var(--bg-primary);
+    padding: 0.6rem 1rem;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 0.8rem;
+    border: none;
+    cursor: pointer;
+    transition: opacity var(--transition-fast);
+    white-space: nowrap;
+}
+
+.addBtn:hover {
+    opacity: 0.85;
+}
+
+@media (max-width: 768px) {
+    .addCategory {
+        flex-direction: column;
+    }
+
+    .categoryItem {
+        padding: 0.6rem 0.75rem;
+    }
 }
