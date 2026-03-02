@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { addTransaction } from '@/lib/actions';
 import styles from './addTransaction.module.css';
 
@@ -12,17 +12,19 @@ type Category = {
 
 export default function AddTransactionForm({ categories }: { categories: Category[] }) {
     const [isOpen, setIsOpen] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isPending, startTransition] = useTransition();
     const [type, setType] = useState<'expense' | 'income' | 'savings'>('expense');
 
-    async function handleSubmit(formData: FormData) {
-        setIsSubmitting(true);
+    function handleSubmit(formData: FormData) {
         formData.append('type', type);
 
-        await addTransaction(formData);
-
-        setIsSubmitting(false);
+        // Optimistic close: Instantly shut the modal so it feels lightning fast
         setIsOpen(false);
+
+        // Execute the server action in the background transition
+        startTransition(async () => {
+            await addTransaction(formData);
+        });
     }
 
     const filteredCategories = categories.filter(c => c.type === type);
@@ -94,8 +96,8 @@ export default function AddTransactionForm({ categories }: { categories: Categor
                                 <input type="date" name="date" required className={styles.input} defaultValue={new Date().toISOString().split('T')[0]} />
                             </div>
 
-                            <button type="submit" className={styles.submitBtn} disabled={isSubmitting || filteredCategories.length === 0}>
-                                {isSubmitting ? 'Saqlanmoqda...' : 'Saqlash'}
+                            <button type="submit" className={styles.submitBtn} disabled={filteredCategories.length === 0}>
+                                Saqlash
                             </button>
                         </form>
                     </div>
