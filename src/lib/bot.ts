@@ -5,26 +5,22 @@ import { supabase } from '@/lib/supabase';
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!);
 
 // ==========================================
-// HELPER: Colored Inline Keyboard (API 9.4)
+// HELPER: Styled Inline Keyboard (API 9.4)
 // ==========================================
-// Telegraf's types don't support `color` yet, so we use raw objects
-// color format is 0xRRGGBB integer
+// API 9.4 `style` field is a String on InlineKeyboardButton.
+// Values: "destructive" = red, "constructive" = green, "secondary" = gray
+// Omit style = default Telegram blue/accent
 
-const COLOR = {
-    RED: 0xE5484D,   // Expense red
-    GREEN: 0x2EAB5B,   // Income green
-    GOLD: 0xF5A623,   // Savings gold
-    BLUE: 0x3B82F6,   // Info blue
-    GRAY: 0x333333,   // Neutral dark
-    PURPLE: 0x8B5CF6,   // Entertainment purple
+const STYLE = {
+    RED: 'destructive',   // Expense — red button
+    GREEN: 'constructive',  // Income — green button
+    GRAY: 'secondary',     // Neutral — gray button
 };
 
-// Helper to build a colored inline button (raw API 9.4 payload)
-const colorBtn = (text: string, callback_data: string, bg?: number): any => {
+// Helper to build a styled inline button (raw API 9.4 payload)
+const styledBtn = (text: string, callback_data: string, style?: string): any => {
     const btn: any = { text, callback_data };
-    if (bg !== undefined) {
-        btn.style = { background_color: bg };
-    }
+    if (style) btn.style = style;
     return btn;
 };
 
@@ -40,18 +36,18 @@ const showMainMenu = async (ctx: Context) => {
             reply_markup: {
                 inline_keyboard: [
                     [
-                        colorBtn("🔴 Xarajat", "add_expense", COLOR.RED),
-                        colorBtn("🟢 Daromad", "add_income", COLOR.GREEN)
+                        styledBtn("🔴 Xarajat", "add_expense", STYLE.RED),
+                        styledBtn("🟢 Daromad", "add_income", STYLE.GREEN)
                     ],
                     [
-                        colorBtn("🏦 Kopilkaga Tashlash", "add_savings", COLOR.GOLD)
+                        styledBtn("🏦 Kopilkaga Tashlash", "add_savings")
                     ],
                     [
-                        colorBtn("📊 Statistika", "show_stats", COLOR.BLUE),
-                        colorBtn("🕒 Tarix", "show_history", COLOR.GRAY)
+                        styledBtn("📊 Statistika", "show_stats"),
+                        styledBtn("🕒 Tarix", "show_history", STYLE.GRAY)
                     ],
                     [
-                        colorBtn("📈 Haftalik Hisobot", "weekly_report", COLOR.PURPLE)
+                        styledBtn("📈 Haftalik Hisobot", "weekly_report", STYLE.GREEN)
                     ]
                 ]
             }
@@ -129,7 +125,7 @@ bot.action(/cat_(expense|income)_(.+)_([0-9.]+)/, async (ctx) => {
             parse_mode: 'HTML',
             reply_markup: {
                 inline_keyboard: [
-                    [colorBtn("🏠 Bosh menyu", "go_home", COLOR.BLUE)]
+                    [styledBtn("🏠 Bosh menyu", "go_home")]
                 ]
             }
         }
@@ -141,10 +137,10 @@ bot.action(/sel_type_(expense|income)_(.+)/, async (ctx) => {
     await ctx.answerCbQuery();
     const type = ctx.match[1] as 'expense' | 'income';
     const amountStr = ctx.match[2];
-    const btnColor = type === 'expense' ? COLOR.RED : COLOR.GREEN;
+    const btnStyle = type === 'expense' ? STYLE.RED : STYLE.GREEN;
 
     const { data } = await supabase.from('categories').select('id, name').eq('type', type);
-    const buttons = data?.map(c => [colorBtn(c.name, `cat_${type}_${c.id}_${amountStr}`, btnColor)]) || [];
+    const buttons = data?.map(c => [styledBtn(c.name, `cat_${type}_${c.id}_${amountStr}`, btnStyle)]) || [];
 
     await ctx.editMessageText(
         `Siz <b>${parseFloat(amountStr).toLocaleString('uz-UZ')} UZS</b> kiritdingiz.\n` +
@@ -178,7 +174,7 @@ bot.action(/sel_type_savings_(.+)/, async (ctx) => {
                 parse_mode: 'HTML',
                 reply_markup: {
                     inline_keyboard: [
-                        [colorBtn("🏠 Bosh menyu", "go_home", COLOR.BLUE)]
+                        [styledBtn("🏠 Bosh menyu", "go_home")]
                     ]
                 }
             }
@@ -232,7 +228,7 @@ bot.on('text', async (ctx) => {
                         parse_mode: 'HTML',
                         reply_markup: {
                             inline_keyboard: [
-                                [colorBtn("🏠 Bosh menyu", "go_home", COLOR.BLUE)]
+                                [styledBtn("🏠 Bosh menyu", "go_home")]
                             ]
                         }
                     }
@@ -247,10 +243,10 @@ bot.on('text', async (ctx) => {
             if (isNaN(amount)) return ctx.reply('❌ Iltimos faqat raqam kiriting.');
 
             const type = promptText.includes('Xarajat') ? 'expense' : 'income';
-            const btnColor = type === 'expense' ? COLOR.RED : COLOR.GREEN;
+            const btnStyle = type === 'expense' ? STYLE.RED : STYLE.GREEN;
 
             const { data } = await supabase.from('categories').select('id, name').eq('type', type);
-            const buttons = data?.map(c => [colorBtn(c.name, `cat_${type}_${c.id}_${amount}`, btnColor)]) || [];
+            const buttons = data?.map(c => [styledBtn(c.name, `cat_${type}_${c.id}_${amount}`, btnStyle)]) || [];
 
             return ctx.reply(
                 `Siz <b>${amount.toLocaleString('uz-UZ')} UZS</b> kiritdingiz.\nQaysi kategoriyaga kiradi?`,
@@ -285,7 +281,7 @@ bot.on('text', async (ctx) => {
                             parse_mode: 'HTML',
                             reply_markup: {
                                 inline_keyboard: [
-                                    [colorBtn("🏠 Bosh menyu", "go_home", COLOR.BLUE)]
+                                    [styledBtn("🏠 Bosh menyu", "go_home")]
                                 ]
                             }
                         }
@@ -301,11 +297,11 @@ bot.on('text', async (ctx) => {
                     reply_markup: {
                         inline_keyboard: [
                             [
-                                colorBtn('🔴 Xarajat', `sel_type_expense_${amount}`, COLOR.RED),
-                                colorBtn('🟢 Kirim', `sel_type_income_${amount}`, COLOR.GREEN)
+                                styledBtn('🔴 Xarajat', `sel_type_expense_${amount}`, STYLE.RED),
+                                styledBtn('🟢 Kirim', `sel_type_income_${amount}`, STYLE.GREEN)
                             ],
-                            [colorBtn('🏦 Kopilkaga', `sel_type_savings_${amount}`, COLOR.GOLD)],
-                            [colorBtn('❌ Bekor qilish', 'cancel_action', COLOR.GRAY)]
+                            [styledBtn('🏦 Kopilkaga', `sel_type_savings_${amount}`)],
+                            [styledBtn('❌ Bekor qilish', 'cancel_action', STYLE.GRAY)]
                         ]
                     }
                 }
@@ -354,7 +350,7 @@ bot.action('show_stats', async (ctx) => {
                 parse_mode: 'HTML',
                 reply_markup: {
                     inline_keyboard: [
-                        [colorBtn("🏠 Bosh menyu", "go_home", COLOR.BLUE)]
+                        [styledBtn("🏠 Bosh menyu", "go_home")]
                     ]
                 }
             }
@@ -428,8 +424,8 @@ bot.action('weekly_report', async (ctx) => {
                 reply_markup: {
                     inline_keyboard: [
                         [
-                            colorBtn("📊 To'liq Statistika", "show_stats", COLOR.BLUE),
-                            colorBtn("🏠 Bosh menyu", "go_home", COLOR.GRAY)
+                            styledBtn("📊 To'liq Statistika", "show_stats"),
+                            styledBtn("🏠 Bosh menyu", "go_home", STYLE.GRAY)
                         ]
                     ]
                 }
@@ -472,7 +468,7 @@ bot.action('show_history', async (ctx) => {
             parse_mode: 'HTML',
             reply_markup: {
                 inline_keyboard: [
-                    [colorBtn("🏠 Bosh menyu", "go_home", COLOR.BLUE)]
+                    [styledBtn("🏠 Bosh menyu", "go_home")]
                 ]
             }
         });
