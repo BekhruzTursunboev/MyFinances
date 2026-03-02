@@ -49,7 +49,9 @@ export default function RootLayout({
               </div>
             </div>
           </aside>
-          {children}
+          <main className="main-content">
+            {children}
+          </main>
         </div>
       </body>
     </html>

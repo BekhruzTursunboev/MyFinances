@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase";
 import styles from "../page.module.css";
 import localStyles from "./transactions.module.css";
 import AddTransactionForm from "@/components/AddTransactionForm";
+import DeleteButton from "@/components/DeleteButton";
 
 export const dynamic = 'force-dynamic';
 
@@ -21,29 +22,29 @@ export default async function Transactions() {
     const categories = rawCategories || [];
 
     return (
-        <div className="layout-container">
-            <main className="main-content">
-                <header className={styles.header}>
-                    <div className={styles.greeting}>
-                        <h1>Tranzaksiyalar Tarixi</h1>
-                        <p>Barcha moliyaviy amaliyotlaringiz shu yerdan topiladi.</p>
-                    </div>
-                    <AddTransactionForm categories={categories} />
-                </header>
+        <>
+            <header className={styles.header}>
+                <div className={styles.greeting}>
+                    <h1>Tranzaksiyalar Tarixi</h1>
+                    <p>Barcha moliyaviy amaliyotlaringiz shu yerdan topiladi.</p>
+                </div>
+                <AddTransactionForm categories={categories} />
+            </header>
 
-                <section className={`glass-panel ${localStyles.transactionsWrapper}`}>
-                    <div className={styles.sectionHeader}>
-                        <div className={localStyles.filters}>
-                            <input type="text" placeholder="Qidirish..." className={localStyles.searchInput} />
-                            <select className={styles.filterSelect}>
-                                <option>Barcha Kategoriyalar</option>
-                                <option>Oziq-ovqat</option>
-                                <option>Kirim</option>
-                                <option>Jamg'arma</option>
-                            </select>
-                        </div>
+            <section className={`glass-panel ${localStyles.transactionsWrapper}`}>
+                <div className={styles.sectionHeader}>
+                    <div className={localStyles.filters}>
+                        <input type="text" placeholder="Qidirish..." className={localStyles.searchInput} />
+                        <select className={styles.filterSelect}>
+                            <option>Barcha Kategoriyalar</option>
+                            <option>Oziq-ovqat</option>
+                            <option>Kirim</option>
+                            <option>Jamg'arma</option>
+                        </select>
                     </div>
+                </div>
 
+                <div className={styles.tableContainer}>
                     <table className={styles.table}>
                         <thead>
                             <tr>
@@ -93,7 +94,7 @@ export default async function Transactions() {
                                                 {prefix}{Math.abs(Number(tx.amount)).toLocaleString('uz-UZ')} UZS
                                             </td>
                                             <td>
-                                                <button className={localStyles.actionBtn}>Tahrirlash</button>
+                                                <DeleteButton id={tx.id} />
                                             </td>
                                         </tr>
                                     )
@@ -101,8 +102,8 @@ export default async function Transactions() {
                             )}
                         </tbody>
                     </table>
-                </section>
-            </main>
-        </div>
+                </div>
+            </section>
+        </>
     );
 }
