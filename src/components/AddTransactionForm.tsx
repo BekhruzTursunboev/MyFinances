@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useRef } from 'react';
 import { addTransaction } from '@/lib/actions';
+import { useRouter } from 'next/navigation';
 import styles from './addTransaction.module.css';
 
 type Category = {
@@ -22,20 +23,46 @@ export default function AddTransactionForm({ categories }: { categories: Categor
     const [isOpen, setIsOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
     const [type, setType] = useState<'expense' | 'income' | 'savings'>('expense');
-    const [showSuccess, setShowSuccess] = useState(false);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const amountRef = useRef<HTMLInputElement>(null);
     const formRef = useRef<HTMLFormElement>(null);
+    const router = useRouter();
+
+    function showToast(message: string, toastType: 'success' | 'error') {
+        setToast({ message, type: toastType });
+        setTimeout(() => setToast(null), 3000);
+    }
 
     function handleSubmit(formData: FormData) {
+        // Client-side validation BEFORE closing
+        const amountStr = formData.get('amount') as string;
+        const amount = parseFloat(amountStr);
+        const categoryId = formData.get('category_id') as string;
+
+        if (!amountStr || isNaN(amount) || amount <= 0) {
+            showToast("❌ Iltimos, to'g'ri summa kiriting", 'error');
+            return;
+        }
+
+        if (!categoryId || categoryId === '') {
+            showToast('❌ Kategoriya tanlang', 'error');
+            return;
+        }
+
         formData.append('type', type);
 
+        // Only close after validation passes
         setIsOpen(false);
 
         startTransition(async () => {
             const result = await addTransaction(formData);
             if (result?.success) {
-                setShowSuccess(true);
-                setTimeout(() => setShowSuccess(false), 2500);
+                showToast('✅ Muvaffaqiyatli saqlandi!', 'success');
+                // Reset form state
+                if (formRef.current) formRef.current.reset();
+                router.refresh();
+            } else if (result?.error) {
+                showToast(`❌ ${result.error}`, 'error');
             }
         });
     }
@@ -56,9 +83,9 @@ export default function AddTransactionForm({ categories }: { categories: Categor
                 Yangi Tranzaksiya
             </button>
 
-            {showSuccess && (
-                <div className="toast toast-success">
-                    ✅ Muvaffaqiyatli saqlandi!
+            {toast && (
+                <div className={`toast ${toast.type === 'success' ? 'toast-success' : 'toast-error'}`}>
+                    {toast.message}
                 </div>
             )}
 
@@ -101,6 +128,7 @@ export default function AddTransactionForm({ categories }: { categories: Categor
                                     ref={amountRef}
                                     type="number"
                                     step="1000"
+                                    min="1"
                                     name="amount"
                                     required
                                     className={`${styles.input} ${styles.amountInput}`}

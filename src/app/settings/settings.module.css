@@ -32,6 +32,13 @@
     line-height: 1.5;
 }
 
+.emptyMessage {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    text-align: center;
+    padding: 1.5rem 0;
+}
+
 .readOnlyNote {
     font-size: 0.78rem;
     color: var(--text-muted);

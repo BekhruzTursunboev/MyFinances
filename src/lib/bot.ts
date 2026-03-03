@@ -4,29 +4,23 @@ import { supabase } from '@/lib/supabase';
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!);
 
 // ==========================================
-// HELPER: Styled Inline Keyboard
+// HELPER: Parse amounts with shorthand
+// 50k = 50000, 1.5m = 1500000, 100ming = 100000
 // ==========================================
-const STYLE = {
-    RED: 'danger',
-    GREEN: 'success',
-    BLUE: 'primary',
-};
-
-const styledBtn = (text: string, callback_data: string, style?: string): any => {
-    const btn: any = { text, callback_data };
-    if (style) btn.style = style;
-    return btn;
-};
-
-// Parse amounts with shorthand: 50k = 50000, 1.5m = 1500000
 function parseAmount(text: string): number | null {
-    const match = text.match(/^([+-]?\d+(?:\.\d+)?)\s*(k|m|ming|mln)?$/i);
+    const cleaned = text.replace(/\s+/g, '').replace(/,/g, '');
+    const match = cleaned.match(/^([+-]?\d+(?:\.\d+)?)\s*(k|m|ming|mln)?$/i);
     if (!match) return null;
     let amount = parseFloat(match[1]);
     const suffix = (match[2] || '').toLowerCase();
     if (suffix === 'k' || suffix === 'ming') amount *= 1000;
     if (suffix === 'm' || suffix === 'mln') amount *= 1000000;
-    return isNaN(amount) ? null : Math.abs(amount);
+    return isNaN(amount) || amount <= 0 ? null : Math.abs(amount);
+}
+
+// Helper to get today's date as ISO
+function todayISO(): string {
+    return new Date().toISOString();
 }
 
 // ==========================================
@@ -41,18 +35,18 @@ const showMainMenu = async (ctx: Context) => {
             reply_markup: {
                 inline_keyboard: [
                     [
-                        styledBtn("🔴 Xarajat", "add_expense", STYLE.RED),
-                        styledBtn("🟢 Daromad", "add_income", STYLE.GREEN)
+                        { text: "🔴 Xarajat", callback_data: "add_expense" },
+                        { text: "🟢 Daromad", callback_data: "add_income" }
                     ],
                     [
-                        styledBtn("🏦 Kopilkaga Tashlash", "add_savings")
+                        { text: "🏦 Kopilkaga Tashlash", callback_data: "add_savings" }
                     ],
                     [
-                        styledBtn("💰 Balans", "show_stats"),
-                        styledBtn("🕒 Tarix", "show_history")
+                        { text: "💰 Balans", callback_data: "show_stats" },
+                        { text: "🕒 Tarix", callback_data: "show_history" }
                     ],
                     [
-                        styledBtn("📈 Haftalik Hisobot", "weekly_report", STYLE.GREEN)
+                        { text: "📈 Haftalik Hisobot", callback_data: "weekly_report" }
                     ]
                 ]
             }
@@ -86,12 +80,16 @@ bot.command('balans', async (ctx) => {
                 parse_mode: 'HTML',
                 reply_markup: {
                     inline_keyboard: [
-                        [styledBtn("📊 Batafsil", "show_stats"), styledBtn("🏠 Menyu", "go_home")]
+                        [
+                            { text: "📊 Batafsil", callback_data: "show_stats" },
+                            { text: "🏠 Menyu", callback_data: "go_home" }
+                        ]
                     ]
                 }
             }
         );
-    } catch {
+    } catch (e) {
+        console.error('Balans error:', e);
         ctx.reply('❌ Balansni olishda xatolik.');
     }
 });
@@ -134,28 +132,35 @@ bot.action('add_income', async (ctx) => {
     });
 });
 
-// Category callback
+// Category callback — save transaction
 bot.action(/cat_(expense|income)_(.+)_([0-9.]+)/, async (ctx) => {
     await ctx.answerCbQuery();
     const type = ctx.match[1] as 'expense' | 'income';
     const catId = ctx.match[2];
     const amount = parseFloat(ctx.match[3]);
 
+    if (isNaN(amount) || amount <= 0) {
+        return ctx.editMessageText('❌ Noto\'g\'ri summa.');
+    }
+
     const { data: catData } = await supabase.from('categories').select('name').eq('id', catId).single();
     if (!catData) return ctx.editMessageText('❌ Kategoriya topilmadi.');
 
     const finalAmount = type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
     const { error } = await supabase.from('transactions').insert({
-        amount: finalAmount, type, category_id: catId, description: ''
+        amount: finalAmount, type, category_id: catId, description: '', date: todayISO()
     });
 
-    if (error) return ctx.editMessageText('❌ Xatolik: ' + error.message);
+    if (error) {
+        console.error('Bot insert error:', error);
+        return ctx.editMessageText('❌ Xatolik: ' + error.message);
+    }
 
     const icon = type === 'income' ? '🟢' : '🔴';
     const sign = type === 'income' ? '+' : '-';
 
     await ctx.editMessageText(
-        `<blockquote>✅ <b>Saqlandi!</b></blockquote>\n\n` +
+        `✅ <b>Saqlandi!</b>\n\n` +
         `${icon} <b>${sign}${Math.abs(amount).toLocaleString('uz-UZ')} UZS</b>\n` +
         `📂 ${catData.name}\n` +
         `📅 ${new Date().toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long', year: 'numeric' })}`,
@@ -163,11 +168,54 @@ bot.action(/cat_(expense|income)_(.+)_([0-9.]+)/, async (ctx) => {
             parse_mode: 'HTML',
             reply_markup: {
                 inline_keyboard: [
-                    [styledBtn("🏠 Bosh menyu", "go_home")]
+                    [{ text: "🏠 Bosh menyu", callback_data: "go_home" }]
                 ]
             }
         }
     );
+});
+
+// Savings direct flow — must be BEFORE the generic sel_type handler
+bot.action(/sel_type_savings_(.+)/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const amount = parseFloat(ctx.match[1]);
+
+    if (isNaN(amount) || amount <= 0) {
+        return ctx.editMessageText('❌ Noto\'g\'ri summa.');
+    }
+
+    let { data: catData } = await supabase.from('categories').select('*').eq('type', 'savings').limit(1).maybeSingle();
+    if (!catData) {
+        const { data } = await supabase.from('categories').insert({ name: "Mening Jamg'armam", type: 'savings', color: '#fbbf24' }).select().single();
+        catData = data;
+    }
+
+    if (catData) {
+        const { error } = await supabase.from('transactions').insert({
+            amount: Math.abs(amount), type: 'savings', category_id: catData.id, description: 'Kopilkaga', date: todayISO()
+        });
+
+        if (error) {
+            console.error('Bot savings insert error:', error);
+            return ctx.editMessageText('❌ Saqlashda xatolik: ' + error.message);
+        }
+
+        await ctx.editMessageText(
+            `✅ <b>Muvaffaqiyatli!</b>\n\n` +
+            `🏦 <b>${amount.toLocaleString('uz-UZ')} UZS</b> Kopilkaga o'tkazildi! 🎉\n` +
+            `📅 ${new Date().toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long' })}`,
+            {
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: "🏠 Bosh menyu", callback_data: "go_home" }]
+                    ]
+                }
+            }
+        );
+    } else {
+        ctx.editMessageText('❌ Jamg\'arma kategoriyasi topilmadi.');
+    }
 });
 
 // Type selection for casually typed amounts
@@ -175,10 +223,13 @@ bot.action(/sel_type_(expense|income)_(.+)/, async (ctx) => {
     await ctx.answerCbQuery();
     const type = ctx.match[1] as 'expense' | 'income';
     const amountStr = ctx.match[2];
-    const btnStyle = type === 'expense' ? STYLE.RED : STYLE.GREEN;
 
     const { data } = await supabase.from('categories').select('id, name').eq('type', type);
-    const buttons = data?.map(c => [styledBtn(c.name, `cat_${type}_${c.id}_${amountStr}`, btnStyle)]) || [];
+    if (!data || data.length === 0) {
+        return ctx.editMessageText(`❌ ${type === 'expense' ? 'Chiqim' : 'Kirim'} kategoriyalari topilmadi. /start tugmasini bosib tekshiring.`);
+    }
+
+    const buttons = data.map(c => [{ text: c.name, callback_data: `cat_${type}_${c.id}_${amountStr}` }]);
 
     await ctx.editMessageText(
         `<b>${parseFloat(amountStr).toLocaleString('uz-UZ')} UZS</b> — qaysi kategoriyaga?`,
@@ -189,38 +240,13 @@ bot.action(/sel_type_(expense|income)_(.+)/, async (ctx) => {
     );
 });
 
-// Savings direct flow
-bot.action(/sel_type_savings_(.+)/, async (ctx) => {
-    await ctx.answerCbQuery();
-    const amount = parseFloat(ctx.match[1]);
-
-    let { data: catData } = await supabase.from('categories').select('*').eq('type', 'savings').ilike('name', 'Mening Jamg\'armam').single();
-    if (!catData) {
-        const { data } = await supabase.from('categories').insert({ name: 'Mening Jamg\'armam', type: 'savings', color: '#fbbf24' }).select().single();
-        catData = data;
-    }
-
-    if (catData) {
-        await supabase.from('transactions').insert({ amount, type: 'savings', category_id: catData.id, description: 'Kopilkaga' });
-        await ctx.editMessageText(
-            `<blockquote>✅ <b>Muvaffaqiyatli!</b></blockquote>\n\n` +
-            `🏦 <b>${amount.toLocaleString('uz-UZ')} UZS</b> Kopilkaga o'tkazildi! 🎉\n` +
-            `📅 ${new Date().toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long' })}`,
-            {
-                parse_mode: 'HTML',
-                reply_markup: {
-                    inline_keyboard: [
-                        [styledBtn("🏠 Bosh menyu", "go_home")]
-                    ]
-                }
-            }
-        );
-    }
-});
-
 bot.action('go_home', async (ctx) => {
     await ctx.answerCbQuery();
-    await ctx.deleteMessage();
+    try {
+        await ctx.deleteMessage();
+    } catch {
+        // Message might already be deleted
+    }
     await showMainMenu(ctx);
 });
 
@@ -246,42 +272,52 @@ bot.on('text', async (ctx) => {
 
         // Kopilka
         if (promptText.includes('Kopilkaga qancha pul tashlaymiz?')) {
-            const amount = parseAmount(text.replace(/[^0-9.kKmM]/g, ''));
+            const amount = parseAmount(text);
             if (!amount) return ctx.reply('❌ Iltimos faqat raqam kiriting (masalan: 50000 yoki 50k).');
 
-            let { data: catData } = await supabase.from('categories').select('*').eq('type', 'savings').ilike('name', 'Mening Jamg\'armam').single();
+            let { data: catData } = await supabase.from('categories').select('*').eq('type', 'savings').limit(1).maybeSingle();
             if (!catData) {
-                const { data } = await supabase.from('categories').insert({ name: 'Mening Jamg\'armam', type: 'savings', color: '#fbbf24' }).select().single();
+                const { data } = await supabase.from('categories').insert({ name: "Mening Jamg'armam", type: 'savings', color: '#fbbf24' }).select().single();
                 catData = data;
             }
 
             if (catData) {
-                await supabase.from('transactions').insert({ amount: Math.abs(amount), type: 'savings', category_id: catData.id, description: 'Kopilkaga' });
+                const { error } = await supabase.from('transactions').insert({
+                    amount: Math.abs(amount), type: 'savings', category_id: catData.id, description: 'Kopilkaga', date: todayISO()
+                });
+                if (error) {
+                    console.error('Bot savings reply error:', error);
+                    return ctx.reply('❌ Saqlashda xatolik: ' + error.message);
+                }
+
                 return ctx.reply(
-                    `<blockquote>✅ <b>Saqlandi!</b></blockquote>\n🏦 <b>${amount.toLocaleString('uz-UZ')} UZS</b> Kopilkaga muvaffaqiyatli o'tkazildi! 🎉`,
+                    `✅ <b>Saqlandi!</b>\n🏦 <b>${amount.toLocaleString('uz-UZ')} UZS</b> Kopilkaga muvaffaqiyatli o'tkazildi! 🎉`,
                     {
                         parse_mode: 'HTML',
                         reply_markup: {
                             inline_keyboard: [
-                                [styledBtn("🏠 Bosh menyu", "go_home")]
+                                [{ text: "🏠 Bosh menyu", callback_data: "go_home" }]
                             ]
                         }
                     }
                 );
             }
-            return ctx.reply('❌ Tizimda xatolik.');
+            return ctx.reply('❌ Tizimda xatolik. /start tugmasini bosib qaytadan urinib ko\'ring.');
         }
 
         // Expense or Income
         if (promptText.includes('Xarajat miqdorini yozing') || promptText.includes('Daromad miqdorini yozing')) {
-            const amount = parseAmount(text.replace(/[^0-9.kKmM]/g, ''));
+            const amount = parseAmount(text);
             if (!amount) return ctx.reply('❌ Iltimos faqat raqam kiriting (masalan: 50000 yoki 50k).');
 
             const type = promptText.includes('Xarajat') ? 'expense' : 'income';
-            const btnStyle = type === 'expense' ? STYLE.RED : STYLE.GREEN;
 
             const { data } = await supabase.from('categories').select('id, name').eq('type', type);
-            const buttons = data?.map(c => [styledBtn(c.name, `cat_${type}_${c.id}_${amount}`, btnStyle)]) || [];
+            if (!data || data.length === 0) {
+                return ctx.reply(`❌ ${type === 'expense' ? 'Chiqim' : 'Kirim'} kategoriyalari topilmadi.`);
+            }
+
+            const buttons = data.map(c => [{ text: c.name, callback_data: `cat_${type}_${c.id}_${amount}` }]);
 
             return ctx.reply(
                 `<b>${amount.toLocaleString('uz-UZ')} UZS</b> — qaysi kategoriyaga?`,
@@ -294,10 +330,9 @@ bot.on('text', async (ctx) => {
     }
 
     // 2. Direct text parsing with shorthand support
-    // Try to extract amount with optional k/m suffix
-    const amountMatch = text.match(/^([+-]?\d+(?:\.\d+)?)\s*(k|m|ming|mln)?\s*(.*)?$/i);
+    const amountMatch = text.match(/^([+-]?\d+(?:[.,]\d+)?)\s*(k|m|ming|mln)?\s*(.*)?$/i);
     if (amountMatch) {
-        let amountRaw = parseFloat(amountMatch[1]);
+        let amountRaw = parseFloat(amountMatch[1].replace(',', '.'));
         const suffix = (amountMatch[2] || '').toLowerCase();
         if (suffix === 'k' || suffix === 'ming') amountRaw *= 1000;
         if (suffix === 'm' || suffix === 'mln') amountRaw *= 1000000;
@@ -307,23 +342,29 @@ bot.on('text', async (ctx) => {
         if (!isNaN(amount) && amount > 0) {
             // Pro format: "50000 ovqat tushlik uchun" or "50k ovqat"
             if (restText) {
-                // First word is category, rest is description
                 const words = restText.split(/\s+/);
                 const rawCat = words[0];
                 const desc = words.slice(1).join(' ');
 
-                let { data: catData } = await supabase.from('categories').select('*').ilike('name', rawCat).maybeSingle();
+                const { data: catData } = await supabase.from('categories').select('*').ilike('name', `%${rawCat}%`).limit(1).maybeSingle();
                 if (catData) {
                     const finalAmount = catData.type === 'expense' ? -amount : amount;
-                    await supabase.from('transactions').insert({ amount: finalAmount, type: catData.type, category_id: catData.id, description: desc });
+                    const { error } = await supabase.from('transactions').insert({
+                        amount: finalAmount, type: catData.type, category_id: catData.id, description: desc, date: todayISO()
+                    });
+                    if (error) {
+                        console.error('Bot quick-save error:', error);
+                        return ctx.reply('❌ Saqlashda xatolik: ' + error.message);
+                    }
+
                     const icon = catData.type === 'income' ? '🟢 +' : catData.type === 'savings' ? '🏦 ' : '🔴 -';
                     return ctx.reply(
-                        `<blockquote>✅ <b>Tezkor Saqlandi!</b></blockquote>\n${icon}${amount.toLocaleString('uz-UZ')} UZS ➔ #${catData.name}${desc ? '\n📝 ' + desc : ''}`,
+                        `✅ <b>Tezkor Saqlandi!</b>\n${icon}${amount.toLocaleString('uz-UZ')} UZS ➔ #${catData.name}${desc ? '\n📝 ' + desc : ''}`,
                         {
                             parse_mode: 'HTML',
                             reply_markup: {
                                 inline_keyboard: [
-                                    [styledBtn("🏠 Bosh menyu", "go_home")]
+                                    [{ text: "🏠 Bosh menyu", callback_data: "go_home" }]
                                 ]
                             }
                         }
@@ -331,7 +372,7 @@ bot.on('text', async (ctx) => {
                 }
             }
 
-            // Routing UI
+            // Routing UI — ask what type
             return ctx.reply(
                 `<b>${amount.toLocaleString('uz-UZ')} UZS</b> — bu nima?`,
                 {
@@ -339,11 +380,11 @@ bot.on('text', async (ctx) => {
                     reply_markup: {
                         inline_keyboard: [
                             [
-                                styledBtn('🔴 Xarajat', `sel_type_expense_${amount}`, STYLE.RED),
-                                styledBtn('🟢 Kirim', `sel_type_income_${amount}`, STYLE.GREEN)
+                                { text: '🔴 Xarajat', callback_data: `sel_type_expense_${amount}` },
+                                { text: '🟢 Kirim', callback_data: `sel_type_income_${amount}` }
                             ],
-                            [styledBtn('🏦 Kopilkaga', `sel_type_savings_${amount}`)],
-                            [styledBtn('❌ Bekor qilish', 'cancel_action')]
+                            [{ text: '🏦 Kopilkaga', callback_data: `sel_type_savings_${amount}` }],
+                            [{ text: '❌ Bekor qilish', callback_data: 'cancel_action' }]
                         ]
                     }
                 }
@@ -371,6 +412,9 @@ bot.action('show_stats', async (ctx) => {
     try {
         const { data, error } = await supabase.from('transactions').select('amount, type');
         if (error) throw error;
+        if (!data || data.length === 0) {
+            return ctx.editMessageText('📊 Hali tranzaksiyalar yo\'q.');
+        }
 
         const income = data.filter(tx => tx.type === 'income').reduce((acc, tx) => acc + Number(tx.amount), 0);
         const expenses = Math.abs(data.filter(tx => tx.type === 'expense').reduce((acc, tx) => acc + Number(tx.amount), 0));
@@ -387,27 +431,28 @@ bot.action('show_stats', async (ctx) => {
         const savingsGoalBar = buildProgressBar(parseFloat(savingsRatio), 50);
 
         await ctx.editMessageText(
-            `<blockquote>📊 <b>Moliyaviy Holatingiz</b></blockquote>\n\n` +
+            `📊 <b>Moliyaviy Holatingiz</b>\n\n` +
             `💰 <b>Balans:</b> ${total.toLocaleString('uz-UZ')} UZS\n\n` +
             `📈 <b>Kirim:</b> +${income.toLocaleString('uz-UZ')} UZS\n${incomeBar}\n\n` +
             `📉 <b>Chiqim:</b> -${expenses.toLocaleString('uz-UZ')} UZS\n${expenseBar}\n\n` +
             `🏦 <b>Jamg'arma:</b> ${savings.toLocaleString('uz-UZ')} UZS\n${savingsBar}\n\n` +
-            `<blockquote>🎯 <b>Jamg'arma Maqsadi (50%):</b>\n${savingsGoalBar} ${savingsRatio}%</blockquote>\n\n` +
+            `🎯 <b>Jamg'arma Maqsadi (50%):</b>\n${savingsGoalBar} ${savingsRatio}%\n\n` +
             `<i>📅 ${new Date().toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long', year: 'numeric' })}</i>`,
             {
                 parse_mode: 'HTML',
                 reply_markup: {
                     inline_keyboard: [
-                        [styledBtn("🏠 Bosh menyu", "go_home")]
+                        [{ text: "🏠 Bosh menyu", callback_data: "go_home" }]
                     ]
                 }
             }
         );
     } catch (e: any) {
+        console.error('Stats error:', e);
         if (e?.code === 'PGRST205') {
             return ctx.editMessageText('❌ Baza sozlanmagan! Avval SQL kodni ishlating.');
         }
-        ctx.editMessageText('❌ Statistika yuklanmadi.');
+        ctx.editMessageText('❌ Statistika yuklanmadi. Qaytadan urinib ko\'ring.');
     }
 });
 
@@ -457,12 +502,12 @@ bot.action('weekly_report', async (ctx) => {
         }
 
         await ctx.editMessageText(
-            `<blockquote>📈 <b>Haftalik Hisobot</b></blockquote>\n\n` +
+            `📈 <b>Haftalik Hisobot</b>\n\n` +
             `🟢 Kirim: +${weekIncome.toLocaleString('uz-UZ')} UZS\n` +
             `🔴 Chiqim: -${weekExpense.toLocaleString('uz-UZ')} UZS\n` +
             `🏦 Jamg'arma: ${weekSavings.toLocaleString('uz-UZ')} UZS\n` +
             `💰 Sof natija: <b>${weekNet.toLocaleString('uz-UZ')} UZS</b>\n\n` +
-            (categoryBreakdown ? `<blockquote>📂 <b>Xarajat Taqsimoti:</b>\n${categoryBreakdown}</blockquote>\n` : '') +
+            (categoryBreakdown ? `📂 <b>Xarajat Taqsimoti:</b>\n${categoryBreakdown}\n` : '') +
             `${advice}\n\n` +
             `<i>📅 ${oneWeekAgo.toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' })} — ${new Date().toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short', year: 'numeric' })}</i>`,
             {
@@ -470,14 +515,15 @@ bot.action('weekly_report', async (ctx) => {
                 reply_markup: {
                     inline_keyboard: [
                         [
-                            styledBtn("📊 Statistika", "show_stats"),
-                            styledBtn("🏠 Bosh menyu", "go_home")
+                            { text: "📊 Statistika", callback_data: "show_stats" },
+                            { text: "🏠 Bosh menyu", callback_data: "go_home" }
                         ]
                     ]
                 }
             }
         );
-    } catch {
+    } catch (e) {
+        console.error('Weekly report error:', e);
         ctx.editMessageText('❌ Haftalik hisobotni olishda xatolik.');
     }
 });
@@ -498,7 +544,7 @@ bot.action('show_history', async (ctx) => {
         if (error) throw error;
         if (!data || data.length === 0) return ctx.editMessageText('Sizda hali tranzaksiyalar yo\'q.');
 
-        let msg = '<blockquote>🕒 <b>So\'nggi 7 ta amaliyot:</b></blockquote>\n\n';
+        let msg = '🕒 <b>So\'nggi 7 ta amaliyot:</b>\n\n';
         data.forEach((tx, i) => {
             const catName = tx.categories?.name || 'Kategoriyasiz';
             const catType = tx.categories?.type || 'expense';
@@ -514,11 +560,12 @@ bot.action('show_history', async (ctx) => {
             parse_mode: 'HTML',
             reply_markup: {
                 inline_keyboard: [
-                    [styledBtn("🏠 Bosh menyu", "go_home")]
+                    [{ text: "🏠 Bosh menyu", callback_data: "go_home" }]
                 ]
             }
         });
-    } catch {
+    } catch (e) {
+        console.error('History error:', e);
         ctx.editMessageText('❌ Tarixni olishda xatolik.');
     }
 });

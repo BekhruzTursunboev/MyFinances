@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import styles from "./layout.module.css";
-import Link from "next/link";
+import NavLink from "@/components/NavLink";
 
 const outfit = Outfit({ subsets: ["latin"] });
 
@@ -27,18 +27,9 @@ export default function RootLayout({
             </div>
 
             <nav className={styles.nav}>
-              <Link href="/" className={`${styles.navItem} ${styles.active}`}>
-                <span className={styles.icon}>📊</span>
-                Bosh Sahifa
-              </Link>
-              <Link href="/transactions" className={styles.navItem}>
-                <span className={styles.icon}>💸</span>
-                Tarix
-              </Link>
-              <Link href="/settings" className={styles.navItem}>
-                <span className={styles.icon}>⚙️</span>
-                Sozlamalar
-              </Link>
+              <NavLink href="/" icon="📊" label="Bosh Sahifa" />
+              <NavLink href="/transactions" icon="💸" label="Tarix" />
+              <NavLink href="/settings" icon="⚙️" label="Sozlamalar" />
             </nav>
 
             <div className={styles.userProfile}>
