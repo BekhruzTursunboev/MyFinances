@@ -1,36 +1,41 @@
-import { Telegraf, Markup, Context } from 'telegraf';
+import { Telegraf, Context } from 'telegraf';
 import { supabase } from '@/lib/supabase';
 
-// Stateless Vercel-Compatible Bot — API 9.4 Enhanced
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!);
 
 // ==========================================
-// HELPER: Styled Inline Keyboard (API 9.4)
+// HELPER: Styled Inline Keyboard
 // ==========================================
-// API 9.4 `style` field is a String on InlineKeyboardButton.
-// Values: "destructive" = red, "constructive" = green, "secondary" = gray
-// Omit style = default Telegram blue/accent
-
 const STYLE = {
-    RED: 'danger',       // Expense — red button
-    GREEN: 'success',    // Income — green button
-    BLUE: 'primary',     // Info — blue button
+    RED: 'danger',
+    GREEN: 'success',
+    BLUE: 'primary',
 };
 
-// Helper to build a styled inline button (raw API 9.4 payload)
 const styledBtn = (text: string, callback_data: string, style?: string): any => {
     const btn: any = { text, callback_data };
     if (style) btn.style = style;
     return btn;
 };
 
+// Parse amounts with shorthand: 50k = 50000, 1.5m = 1500000
+function parseAmount(text: string): number | null {
+    const match = text.match(/^([+-]?\d+(?:\.\d+)?)\s*(k|m|ming|mln)?$/i);
+    if (!match) return null;
+    let amount = parseFloat(match[1]);
+    const suffix = (match[2] || '').toLowerCase();
+    if (suffix === 'k' || suffix === 'ming') amount *= 1000;
+    if (suffix === 'm' || suffix === 'mln') amount *= 1000000;
+    return isNaN(amount) ? null : Math.abs(amount);
+}
+
 // ==========================================
-// MAIN MENU with Colored Buttons
+// MAIN MENU
 // ==========================================
 const showMainMenu = async (ctx: Context) => {
     await ctx.reply(
         '🌟 <b>MyFinanceuz — Moliyaviy Boshqaruvchi</b>\n\n' +
-        '💡 <i>Summani yozing (masalan: <code>50000</code>) yoki tugmalardan birini tanlang:</i>',
+        '💡 <i>Summani yozing (masalan: <code>50000</code> yoki <code>50k</code>) yoki tugmalardan tanlang:</i>',
         {
             parse_mode: 'HTML',
             reply_markup: {
@@ -43,7 +48,7 @@ const showMainMenu = async (ctx: Context) => {
                         styledBtn("🏦 Kopilkaga Tashlash", "add_savings")
                     ],
                     [
-                        styledBtn("📊 Statistika", "show_stats"),
+                        styledBtn("💰 Balans", "show_stats"),
                         styledBtn("🕒 Tarix", "show_history")
                     ],
                     [
@@ -56,23 +61,58 @@ const showMainMenu = async (ctx: Context) => {
 };
 
 bot.start((ctx) => showMainMenu(ctx));
+
+bot.command('menu', (ctx) => showMainMenu(ctx));
+
+// /balans — instant balance check
+bot.command('balans', async (ctx) => {
+    try {
+        const { data } = await supabase.from('transactions').select('amount, type');
+        if (!data || data.length === 0) {
+            return ctx.reply('📊 Hali tranzaksiyalar yo\'q. /start tugmasini bosib boshlang!');
+        }
+
+        const income = data.filter(tx => tx.type === 'income').reduce((acc, tx) => acc + Number(tx.amount), 0);
+        const expenses = Math.abs(data.filter(tx => tx.type === 'expense').reduce((acc, tx) => acc + Number(tx.amount), 0));
+        const savings = data.filter(tx => tx.type === 'savings').reduce((acc, tx) => acc + Math.abs(Number(tx.amount)), 0);
+        const total = income - expenses - savings;
+
+        await ctx.reply(
+            `💰 <b>Balans:</b> ${total.toLocaleString('uz-UZ')} UZS\n` +
+            `🟢 Kirim: +${income.toLocaleString('uz-UZ')}\n` +
+            `🔴 Chiqim: -${expenses.toLocaleString('uz-UZ')}\n` +
+            `🏦 Jamg'arma: ${savings.toLocaleString('uz-UZ')}`,
+            {
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [
+                        [styledBtn("📊 Batafsil", "show_stats"), styledBtn("🏠 Menyu", "go_home")]
+                    ]
+                }
+            }
+        );
+    } catch {
+        ctx.reply('❌ Balansni olishda xatolik.');
+    }
+});
+
 bot.help((ctx) => ctx.reply(
     '📖 <b>Yordam</b>\n\n' +
-    '1️⃣ Shunchaki raqam yozing → summa kiritiladi\n' +
-    '2️⃣ "50000 ovqat" → tezkor saqlash\n' +
-    '3️⃣ Tugmalarni bosing → menyular\n' +
+    '1️⃣ Raqam yozing → <code>50000</code> yoki <code>50k</code>\n' +
+    '2️⃣ "50000 ovqat" yoki "50k ovqat tushlik" → tezkor saqlash\n' +
+    '3️⃣ /balans → tez balans ko\'rish\n' +
     '4️⃣ /start → Bosh menyu\n\n' +
     '<i>Bot sizning shaxsiy moliyaviy yordamchingiz!</i>',
     { parse_mode: 'HTML' }
 ));
 
 // ==========================================
-// CALLBACK HANDLERS (Buttons)
+// CALLBACK HANDLERS
 // ==========================================
 
 bot.action('add_savings', async (ctx) => {
     await ctx.answerCbQuery();
-    await ctx.reply('🏦 <b>Kopilkaga qancha pul tashlaymiz?</b>\n\n<i>Faqat raqam yozing:</i>', {
+    await ctx.reply('🏦 <b>Kopilkaga qancha pul tashlaymiz?</b>\n\n<i>Raqam yozing (masalan: 50000 yoki 50k):</i>', {
         parse_mode: 'HTML',
         reply_markup: { force_reply: true, selective: true }
     });
@@ -80,7 +120,7 @@ bot.action('add_savings', async (ctx) => {
 
 bot.action('add_expense', async (ctx) => {
     await ctx.answerCbQuery();
-    await ctx.reply('🔴 <b>Xarajat miqdorini yozing:</b>\n\n<i>Faqat raqam kiriting (masalan: 50000):</i>', {
+    await ctx.reply('🔴 <b>Xarajat miqdorini yozing:</b>\n\n<i>Raqam kiriting (masalan: 50000 yoki 50k):</i>', {
         parse_mode: 'HTML',
         reply_markup: { force_reply: true, selective: true }
     });
@@ -88,24 +128,22 @@ bot.action('add_expense', async (ctx) => {
 
 bot.action('add_income', async (ctx) => {
     await ctx.answerCbQuery();
-    await ctx.reply('🟢 <b>Daromad miqdorini yozing:</b>\n\n<i>Faqat raqam kiriting (masalan: 1000000):</i>', {
+    await ctx.reply('🟢 <b>Daromad miqdorini yozing:</b>\n\n<i>Raqam kiriting (masalan: 1000000 yoki 1m):</i>', {
         parse_mode: 'HTML',
         reply_markup: { force_reply: true, selective: true }
     });
 });
 
-// Category callback with colored buttons
+// Category callback
 bot.action(/cat_(expense|income)_(.+)_([0-9.]+)/, async (ctx) => {
     await ctx.answerCbQuery();
     const type = ctx.match[1] as 'expense' | 'income';
     const catId = ctx.match[2];
-    const amountStr = ctx.match[3];
-    const amount = parseFloat(amountStr);
+    const amount = parseFloat(ctx.match[3]);
 
     const { data: catData } = await supabase.from('categories').select('name').eq('id', catId).single();
     if (!catData) return ctx.editMessageText('❌ Kategoriya topilmadi.');
 
-    // Save directly with no description prompt for speed
     const finalAmount = type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
     const { error } = await supabase.from('transactions').insert({
         amount: finalAmount, type, category_id: catId, description: ''
@@ -119,7 +157,7 @@ bot.action(/cat_(expense|income)_(.+)_([0-9.]+)/, async (ctx) => {
     await ctx.editMessageText(
         `<blockquote>✅ <b>Saqlandi!</b></blockquote>\n\n` +
         `${icon} <b>${sign}${Math.abs(amount).toLocaleString('uz-UZ')} UZS</b>\n` +
-        `📂 Kategoriya: <b>${catData.name}</b>\n` +
+        `📂 ${catData.name}\n` +
         `📅 ${new Date().toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long', year: 'numeric' })}`,
         {
             parse_mode: 'HTML',
@@ -132,7 +170,7 @@ bot.action(/cat_(expense|income)_(.+)_([0-9.]+)/, async (ctx) => {
     );
 });
 
-// Handle type selection for casual-typed amount — with colored category buttons
+// Type selection for casually typed amounts
 bot.action(/sel_type_(expense|income)_(.+)/, async (ctx) => {
     await ctx.answerCbQuery();
     const type = ctx.match[1] as 'expense' | 'income';
@@ -143,8 +181,7 @@ bot.action(/sel_type_(expense|income)_(.+)/, async (ctx) => {
     const buttons = data?.map(c => [styledBtn(c.name, `cat_${type}_${c.id}_${amountStr}`, btnStyle)]) || [];
 
     await ctx.editMessageText(
-        `Siz <b>${parseFloat(amountStr).toLocaleString('uz-UZ')} UZS</b> kiritdingiz.\n` +
-        `Qaysi kategoriyaga kiradi?`,
+        `<b>${parseFloat(amountStr).toLocaleString('uz-UZ')} UZS</b> — qaysi kategoriyaga?`,
         {
             parse_mode: 'HTML',
             reply_markup: { inline_keyboard: buttons }
@@ -155,17 +192,16 @@ bot.action(/sel_type_(expense|income)_(.+)/, async (ctx) => {
 // Savings direct flow
 bot.action(/sel_type_savings_(.+)/, async (ctx) => {
     await ctx.answerCbQuery();
-    const amountStr = ctx.match[1];
-    const amount = parseFloat(amountStr);
+    const amount = parseFloat(ctx.match[1]);
 
     let { data: catData } = await supabase.from('categories').select('*').eq('type', 'savings').ilike('name', 'Mening Jamg\'armam').single();
     if (!catData) {
-        const { data } = await supabase.from('categories').insert({ name: 'Mening Jamg\'armam', type: 'savings', color: '#eab308' }).select().single();
+        const { data } = await supabase.from('categories').insert({ name: 'Mening Jamg\'armam', type: 'savings', color: '#fbbf24' }).select().single();
         catData = data;
     }
 
     if (catData) {
-        await supabase.from('transactions').insert({ amount: amount, type: 'savings', category_id: catData.id, description: 'Kopilkaga' });
+        await supabase.from('transactions').insert({ amount, type: 'savings', category_id: catData.id, description: 'Kopilkaga' });
         await ctx.editMessageText(
             `<blockquote>✅ <b>Muvaffaqiyatli!</b></blockquote>\n\n` +
             `🏦 <b>${amount.toLocaleString('uz-UZ')} UZS</b> Kopilkaga o'tkazildi! 🎉\n` +
@@ -182,7 +218,6 @@ bot.action(/sel_type_savings_(.+)/, async (ctx) => {
     }
 });
 
-// Go Home button
 bot.action('go_home', async (ctx) => {
     await ctx.answerCbQuery();
     await ctx.deleteMessage();
@@ -205,18 +240,18 @@ bot.on('text', async (ctx) => {
         return;
     }
 
-    // 1. Is this a reply to a ForceReply prompt?
+    // 1. Reply to ForceReply prompt
     if (ctx.message.reply_to_message && 'text' in ctx.message.reply_to_message) {
         const promptText = ctx.message.reply_to_message.text || '';
 
-        // Match: Kopilka Amount
+        // Kopilka
         if (promptText.includes('Kopilkaga qancha pul tashlaymiz?')) {
-            const amount = parseFloat(text.replace(/[^0-9.]/g, ''));
-            if (isNaN(amount)) return ctx.reply('❌ Iltimos faqat raqam kiriting.');
+            const amount = parseAmount(text.replace(/[^0-9.kKmM]/g, ''));
+            if (!amount) return ctx.reply('❌ Iltimos faqat raqam kiriting (masalan: 50000 yoki 50k).');
 
             let { data: catData } = await supabase.from('categories').select('*').eq('type', 'savings').ilike('name', 'Mening Jamg\'armam').single();
             if (!catData) {
-                const { data } = await supabase.from('categories').insert({ name: 'Mening Jamg\'armam', type: 'savings', color: '#eab308' }).select().single();
+                const { data } = await supabase.from('categories').insert({ name: 'Mening Jamg\'armam', type: 'savings', color: '#fbbf24' }).select().single();
                 catData = data;
             }
 
@@ -234,13 +269,13 @@ bot.on('text', async (ctx) => {
                     }
                 );
             }
-            return ctx.reply('❌ Tizimda xatolik. Bazangiz to\'g\'ri sozlanganiga ishonch hosil qiling.');
+            return ctx.reply('❌ Tizimda xatolik.');
         }
 
-        // Match: Expense or Income Amount
+        // Expense or Income
         if (promptText.includes('Xarajat miqdorini yozing') || promptText.includes('Daromad miqdorini yozing')) {
-            const amount = parseFloat(text.replace(/[^0-9.]/g, ''));
-            if (isNaN(amount)) return ctx.reply('❌ Iltimos faqat raqam kiriting.');
+            const amount = parseAmount(text.replace(/[^0-9.kKmM]/g, ''));
+            if (!amount) return ctx.reply('❌ Iltimos faqat raqam kiriting (masalan: 50000 yoki 50k).');
 
             const type = promptText.includes('Xarajat') ? 'expense' : 'income';
             const btnStyle = type === 'expense' ? STYLE.RED : STYLE.GREEN;
@@ -249,7 +284,7 @@ bot.on('text', async (ctx) => {
             const buttons = data?.map(c => [styledBtn(c.name, `cat_${type}_${c.id}_${amount}`, btnStyle)]) || [];
 
             return ctx.reply(
-                `Siz <b>${amount.toLocaleString('uz-UZ')} UZS</b> kiritdingiz.\nQaysi kategoriyaga kiradi?`,
+                `<b>${amount.toLocaleString('uz-UZ')} UZS</b> — qaysi kategoriyaga?`,
                 {
                     parse_mode: 'HTML',
                     reply_markup: { inline_keyboard: buttons }
@@ -258,25 +293,32 @@ bot.on('text', async (ctx) => {
         }
     }
 
-    // 2. Direct Casual Text (No Reply Context)
-    const extractedNumberMatch = text.match(/([+-]?\$?\d+(?:\.\d+)?)/);
-    if (extractedNumberMatch) {
-        const amountStr = extractedNumberMatch[1].replace(/[^0-9.+-]/g, '');
-        const amount = Math.abs(parseFloat(amountStr));
+    // 2. Direct text parsing with shorthand support
+    // Try to extract amount with optional k/m suffix
+    const amountMatch = text.match(/^([+-]?\d+(?:\.\d+)?)\s*(k|m|ming|mln)?\s*(.*)?$/i);
+    if (amountMatch) {
+        let amountRaw = parseFloat(amountMatch[1]);
+        const suffix = (amountMatch[2] || '').toLowerCase();
+        if (suffix === 'k' || suffix === 'ming') amountRaw *= 1000;
+        if (suffix === 'm' || suffix === 'mln') amountRaw *= 1000000;
+        const amount = Math.abs(amountRaw);
+        const restText = (amountMatch[3] || '').trim();
 
-        if (!isNaN(amount)) {
-            // Try pro parsing "50000 ovqat"
-            const proMatch = text.match(/^([+-]?\$?\d+(?:\.\d+)?)\s+(\w+)(?:\s+(?:-|—)\s+(.*))?$/i);
-            if (proMatch) {
-                const rawCat = proMatch[2];
-                const desc = proMatch[3] || '';
+        if (!isNaN(amount) && amount > 0) {
+            // Pro format: "50000 ovqat tushlik uchun" or "50k ovqat"
+            if (restText) {
+                // First word is category, rest is description
+                const words = restText.split(/\s+/);
+                const rawCat = words[0];
+                const desc = words.slice(1).join(' ');
+
                 let { data: catData } = await supabase.from('categories').select('*').ilike('name', rawCat).maybeSingle();
                 if (catData) {
                     const finalAmount = catData.type === 'expense' ? -amount : amount;
                     await supabase.from('transactions').insert({ amount: finalAmount, type: catData.type, category_id: catData.id, description: desc });
-                    const icon = catData.type === 'income' ? '🟢 +' : catData.type === 'savings' ? '🏦 ' : '🔴 ';
+                    const icon = catData.type === 'income' ? '🟢 +' : catData.type === 'savings' ? '🏦 ' : '🔴 -';
                     return ctx.reply(
-                        `<blockquote>✅ <b>Tezkor Saqlandi!</b></blockquote>\n${icon}${amount.toLocaleString('uz-UZ')} UZS ➔ #${catData.name}\n<i>${desc}</i>`,
+                        `<blockquote>✅ <b>Tezkor Saqlandi!</b></blockquote>\n${icon}${amount.toLocaleString('uz-UZ')} UZS ➔ #${catData.name}${desc ? '\n📝 ' + desc : ''}`,
                         {
                             parse_mode: 'HTML',
                             reply_markup: {
@@ -289,9 +331,9 @@ bot.on('text', async (ctx) => {
                 }
             }
 
-            // Casual routing UI with colored buttons
+            // Routing UI
             return ctx.reply(
-                `Siz <b>${amount.toLocaleString('uz-UZ')} UZS</b> kiritdingiz. Bu nima?`,
+                `<b>${amount.toLocaleString('uz-UZ')} UZS</b> — bu nima?`,
                 {
                     parse_mode: 'HTML',
                     reply_markup: {
@@ -309,11 +351,19 @@ bot.on('text', async (ctx) => {
         }
     }
 
-    ctx.reply('Tushunmadim 😕\nSiz kiritmoqchi bo\'lgan summani kiriting (masalan 50000) yoki /start buyrug\'ini yuboring.');
+    ctx.reply(
+        'Tushunmadim 😕\n\n' +
+        '<b>Maslahat:</b>\n' +
+        '• Raqam yozing: <code>50000</code> yoki <code>50k</code>\n' +
+        '• Tezkor: <code>50000 ovqat tushlik</code>\n' +
+        '• /balans — balans ko\'rish\n' +
+        '• /start — bosh menyu',
+        { parse_mode: 'HTML' }
+    );
 });
 
 // ==========================================
-// STATISTICS with Visual Bar Chart
+// STATISTICS
 // ==========================================
 
 bot.action('show_stats', async (ctx) => {
@@ -327,25 +377,23 @@ bot.action('show_stats', async (ctx) => {
         const savings = data.filter(tx => tx.type === 'savings').reduce((acc, tx) => acc + Math.abs(Number(tx.amount)), 0);
         const total = income - expenses - savings;
 
-        // Build visual bar chart
         const maxVal = Math.max(income, expenses, savings) || 1;
         const barLen = 12;
         const incomeBar = '🟩'.repeat(Math.max(1, Math.round((income / maxVal) * barLen)));
         const expenseBar = '🟥'.repeat(Math.max(1, Math.round((expenses / maxVal) * barLen)));
         const savingsBar = '🟨'.repeat(Math.max(1, Math.round((savings / maxVal) * barLen)));
 
-        // Savings goal progress (50% savings ratio as target)
         const savingsRatio = income > 0 ? ((savings / income) * 100).toFixed(1) : '0';
-        const savingsGoalBar = buildProgressBar(parseFloat(savingsRatio as string), 50); // 50% goal
+        const savingsGoalBar = buildProgressBar(parseFloat(savingsRatio), 50);
 
         await ctx.editMessageText(
             `<blockquote>📊 <b>Moliyaviy Holatingiz</b></blockquote>\n\n` +
-            `💰 <b>Hozirgi Balans:</b> ${total.toLocaleString('uz-UZ')} UZS\n\n` +
+            `💰 <b>Balans:</b> ${total.toLocaleString('uz-UZ')} UZS\n\n` +
             `📈 <b>Kirim:</b> +${income.toLocaleString('uz-UZ')} UZS\n${incomeBar}\n\n` +
             `📉 <b>Chiqim:</b> -${expenses.toLocaleString('uz-UZ')} UZS\n${expenseBar}\n\n` +
             `🏦 <b>Jamg'arma:</b> ${savings.toLocaleString('uz-UZ')} UZS\n${savingsBar}\n\n` +
             `<blockquote>🎯 <b>Jamg'arma Maqsadi (50%):</b>\n${savingsGoalBar} ${savingsRatio}%</blockquote>\n\n` +
-            `<i>📅 ${new Date().toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long', year: 'numeric' })}, ${new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}</i>`,
+            `<i>📅 ${new Date().toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long', year: 'numeric' })}</i>`,
             {
                 parse_mode: 'HTML',
                 reply_markup: {
@@ -386,7 +434,6 @@ bot.action('weekly_report', async (ctx) => {
         const weekSavings = data?.filter(tx => tx.type === 'savings').reduce((acc, tx) => acc + Math.abs(Number(tx.amount)), 0) || 0;
         const weekNet = weekIncome - weekExpense - weekSavings;
 
-        // Category breakdown for expenses
         const expensesByCategory: Record<string, number> = {};
         data?.filter(tx => tx.type === 'expense').forEach(tx => {
             const catName = (tx.categories as any)?.name || 'Boshqa';
@@ -400,18 +447,17 @@ bot.action('weekly_report', async (ctx) => {
             categoryBreakdown += `   • ${name}: ${amount.toLocaleString('uz-UZ')} UZS (${pct}%)\n`;
         });
 
-        // Financial advice
         let advice = '';
         if (weekExpense > weekIncome * 0.8) {
-            advice = '⚠️ <b>Ogohlantirish:</b> Xarajatlaringiz daromadingizning 80% dan oshdi! Tejashga harakat qiling.';
+            advice = '⚠️ <b>Ogohlantirish:</b> Xarajatlar 80%+ — tejashga harakat qiling.';
         } else if (weekSavings > weekIncome * 0.3) {
-            advice = '🌟 <b>Ajoyib!</b> Siz daromadingizning 30%+ ni jamg\'aryapsiz. Davom eting!';
+            advice = '🌟 <b>Ajoyib!</b> 30%+ jamg\'arma — davom eting!';
         } else {
-            advice = '💡 <b>Maslahat:</b> Har bir kirimdan kamida 20% ni kopilkaga tashlashga harakat qiling.';
+            advice = '💡 <b>Maslahat:</b> Har bir kirimdan kamida 20% kopilkaga tashlang.';
         }
 
         await ctx.editMessageText(
-            `<blockquote>📈 <b>Haftalik Moliyaviy Hisobot</b></blockquote>\n\n` +
+            `<blockquote>📈 <b>Haftalik Hisobot</b></blockquote>\n\n` +
             `🟢 Kirim: +${weekIncome.toLocaleString('uz-UZ')} UZS\n` +
             `🔴 Chiqim: -${weekExpense.toLocaleString('uz-UZ')} UZS\n` +
             `🏦 Jamg'arma: ${weekSavings.toLocaleString('uz-UZ')} UZS\n` +
@@ -424,14 +470,14 @@ bot.action('weekly_report', async (ctx) => {
                 reply_markup: {
                     inline_keyboard: [
                         [
-                            styledBtn("📊 To'liq Statistika", "show_stats"),
+                            styledBtn("📊 Statistika", "show_stats"),
                             styledBtn("🏠 Bosh menyu", "go_home")
                         ]
                     ]
                 }
             }
         );
-    } catch (e) {
+    } catch {
         ctx.editMessageText('❌ Haftalik hisobotni olishda xatolik.');
     }
 });
@@ -472,13 +518,13 @@ bot.action('show_history', async (ctx) => {
                 ]
             }
         });
-    } catch (e) {
-        ctx.editMessageText('❌ Tarixni olishda xatolik yuz berdi.');
+    } catch {
+        ctx.editMessageText('❌ Tarixni olishda xatolik.');
     }
 });
 
 // ==========================================
-// UTILITY FUNCTIONS
+// UTILITY
 // ==========================================
 
 function buildProgressBar(current: number, target: number): string {

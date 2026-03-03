@@ -2,18 +2,17 @@ import { supabase } from "@/lib/supabase";
 import styles from "./page.module.css";
 import AddTransactionForm from "@/components/AddTransactionForm";
 import DeleteButton from "@/components/DeleteButton";
-import { FadeIn, StaggerContainer, StaggerItem } from "@/components/Animations";
+import { FadeIn } from "@/components/Animations";
 
 // Force dynamic rendering to always fetch latest data
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  const { data: rawTransactions, error } = await supabase
+  const { data: rawTransactions } = await supabase
     .from('transactions')
     .select('*, categories(name)')
     .order('date', { ascending: false });
 
-  // Fetch categories for the Add transaction form
   const { data: rawCategories } = await supabase
     .from('categories')
     .select('*')
@@ -25,102 +24,149 @@ export default async function Home() {
   const totalIncome = transactions.filter(tx => tx.type === 'income').reduce((acc, tx) => acc + Number(tx.amount), 0);
   const totalExpenses = Math.abs(transactions.filter(tx => tx.type === 'expense').reduce((acc, tx) => acc + Number(tx.amount), 0));
   const totalSavings = transactions.filter(tx => tx.type === 'savings').reduce((acc, tx) => acc + Math.abs(Number(tx.amount)), 0);
-
-  // Effective checking balance
   const totalBalance = totalIncome - totalExpenses - totalSavings;
 
-  // Get only top 5 for dashboard
+  // Real trend: compare this month vs last month
+  const now = new Date();
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  const thisMonthTx = transactions.filter(tx => new Date(tx.date) >= thisMonthStart);
+  const lastMonthTx = transactions.filter(tx => {
+    const d = new Date(tx.date);
+    return d >= lastMonthStart && d < thisMonthStart;
+  });
+
+  const thisMonthIncome = thisMonthTx.filter(tx => tx.type === 'income').reduce((acc, tx) => acc + Number(tx.amount), 0);
+  const lastMonthIncome = lastMonthTx.filter(tx => tx.type === 'income').reduce((acc, tx) => acc + Number(tx.amount), 0);
+  const thisMonthExpense = Math.abs(thisMonthTx.filter(tx => tx.type === 'expense').reduce((acc, tx) => acc + Number(tx.amount), 0));
+  const lastMonthExpense = Math.abs(lastMonthTx.filter(tx => tx.type === 'expense').reduce((acc, tx) => acc + Number(tx.amount), 0));
+
+  const incomeTrend = lastMonthIncome > 0 ? (((thisMonthIncome - lastMonthIncome) / lastMonthIncome) * 100) : 0;
+  const expenseTrend = lastMonthExpense > 0 ? (((thisMonthExpense - lastMonthExpense) / lastMonthExpense) * 100) : 0;
+
+  const txCount = transactions.length;
   const recentTransactions = transactions.slice(0, 5);
+
+  // Spending insight
+  let insight = '';
+  if (totalExpenses > totalIncome * 0.8) {
+    insight = '⚠️ Xarajatlar daromadning 80%+ — ehtiyot bo\'ling!';
+  } else if (totalSavings > totalIncome * 0.3) {
+    insight = '🌟 Ajoyib! Daromadning 30%+ jamg\'arma — davom eting!';
+  } else if (txCount > 0) {
+    insight = '💡 Har oyda kamida 20% jamg\'armaga ajrating';
+  }
 
   return (
     <>
       <header className={styles.header}>
         <div className={styles.greeting}>
-          <h1>Bosh Sahifa</h1>
-          <p>Xush kelibsiz, Degrayce. Moliyaviy xulosangiz.</p>
+          <p className={styles.greetingLabel}>Bosh Sahifa</p>
+          <h1>Xush kelibsiz, Degrayce 👋</h1>
+          {insight && <p className={styles.insight}>{insight}</p>}
         </div>
         <AddTransactionForm categories={categories} />
       </header>
 
-      <FadeIn delay={0.1}>
+      <FadeIn delay={0.05}>
         <section className={styles.statsGrid}>
-          <div className={`glass-panel ${styles.statCard}`}>
+          <div className={`glass-panel ${styles.statCard} ${styles.balanceCard}`}>
             <div className={styles.statHeader}>
-              <div className={styles.statIconWrapper} style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)', color: 'var(--accent-primary)' }}>
-                💰
-              </div>
-              <span className={styles.statTrend}>+2.4%</span>
+              <div className={styles.statIconWrapper} data-type="balance">💰</div>
+              {txCount > 0 && (
+                <span className={`${styles.statTrend} ${incomeTrend >= 0 ? styles.trendUp : styles.trendDown}`}>
+                  {incomeTrend >= 0 ? '↑' : '↓'} {Math.abs(incomeTrend).toFixed(1)}%
+                </span>
+              )}
             </div>
-            <h3>Umumiy Balans</h3>
-            <p className={styles.statValue}>{totalBalance.toLocaleString('uz-UZ')} UZS</p>
+            <div className={styles.statBody}>
+              <span className={styles.statLabel}>Umumiy Balans</span>
+              <span className={styles.statValue}>{totalBalance.toLocaleString('uz-UZ')} <small>UZS</small></span>
+            </div>
           </div>
 
-          <div className={`glass-panel ${styles.statCard}`}>
+          <div className={`glass-panel ${styles.statCard} ${styles.incomeCard}`}>
             <div className={styles.statHeader}>
-              <div className={styles.statIconWrapper} style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)' }}>
-                📈
-              </div>
+              <div className={styles.statIconWrapper} data-type="income">📈</div>
             </div>
-            <h3>Jami Kirim</h3>
-            <p className={`${styles.statValue} ${styles.income}`}>+{totalIncome.toLocaleString('uz-UZ')} UZS</p>
+            <div className={styles.statBody}>
+              <span className={styles.statLabel}>Jami Kirim</span>
+              <span className={`${styles.statValue} ${styles.income}`}>+{totalIncome.toLocaleString('uz-UZ')} <small>UZS</small></span>
+            </div>
           </div>
 
-          <div className={`glass-panel ${styles.statCard}`}>
+          <div className={`glass-panel ${styles.statCard} ${styles.expenseCard}`}>
             <div className={styles.statHeader}>
-              <div className={styles.statIconWrapper} style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)' }}>
-                📉
-              </div>
+              <div className={styles.statIconWrapper} data-type="expense">📉</div>
+              {txCount > 0 && (
+                <span className={`${styles.statTrend} ${expenseTrend <= 0 ? styles.trendUp : styles.trendDown}`}>
+                  {expenseTrend <= 0 ? '↓' : '↑'} {Math.abs(expenseTrend).toFixed(1)}%
+                </span>
+              )}
             </div>
-            <h3>Jami Chiqim</h3>
-            <p className={`${styles.statValue} ${styles.expense}`}>-{totalExpenses.toLocaleString('uz-UZ')} UZS</p>
+            <div className={styles.statBody}>
+              <span className={styles.statLabel}>Jami Chiqim</span>
+              <span className={`${styles.statValue} ${styles.expense}`}>-{totalExpenses.toLocaleString('uz-UZ')} <small>UZS</small></span>
+            </div>
           </div>
 
-          <div className={`glass-panel ${styles.statCard} ${styles.savingsCard}`}>
+          <div className={`glass-panel ${styles.statCard} ${styles.savingsCardEl}`}>
             <div className={styles.statHeader}>
-              <div className={styles.statIconWrapper} style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)' }}>
-                🏦
-              </div>
+              <div className={styles.statIconWrapper} data-type="savings">🏦</div>
               <span className={styles.savingsLabel}>Muxim!</span>
             </div>
-            <h3>Jamg'arma (Alohida)</h3>
-            <p className={`${styles.statValue} ${styles.savings}`}>{totalSavings.toLocaleString('uz-UZ')} UZS</p>
+            <div className={styles.statBody}>
+              <span className={styles.statLabel}>Jamg'arma (Alohida)</span>
+              <span className={`${styles.statValue} ${styles.savings}`}>{totalSavings.toLocaleString('uz-UZ')} <small>UZS</small></span>
+            </div>
           </div>
         </section>
       </FadeIn>
 
-      <FadeIn delay={0.2}>
+      <FadeIn delay={0.15}>
         <section className={styles.dashboardContent}>
           <div className={`glass-panel ${styles.chartSection}`}>
             <div className={styles.sectionHeader}>
-              <h2>Oylik Xarajatlar Oqimi</h2>
+              <h2>Moliyaviy Xulosa</h2>
             </div>
-            {/* Functional relative bar chart based on actual values */}
             <div className={styles.chartPlaceholder}>
               {transactions.length === 0 ? (
-                <div style={{ width: '100%', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                  Hali ma'lumot yo'q. Telegram bot orqali kiriting!
+                <div className={styles.emptyChart}>
+                  <span className={styles.emptyIcon}>📊</span>
+                  <p>Hali ma'lumot yo'q</p>
+                  <small>Telegram bot yoki yuqoridagi tugma orqali kiriting</small>
                 </div>
               ) : (
                 <div className={styles.barContainer}>
-                  {[totalIncome, totalExpenses, totalSavings].map((val, idx) => {
+                  {[
+                    { value: totalIncome, label: 'Kirim', color: 'var(--success)', glow: 'var(--shadow-glow-success)' },
+                    { value: totalExpenses, label: 'Chiqim', color: 'var(--danger)', glow: 'var(--shadow-glow-danger)' },
+                    { value: totalSavings, label: "Jamg'arma", color: 'var(--warning)', glow: 'var(--shadow-glow-warning)' }
+                  ].map((item, idx) => {
                     const max = Math.max(totalIncome, totalExpenses, totalSavings) || 1;
-                    const heightPercentage = Math.max(10, (val / max) * 100);
-                    const colors = ['var(--success)', 'var(--danger)', 'var(--warning)'];
-                    const labels = ['Kirim', 'Chiqim', 'Jamg\'arma'];
+                    const heightPercentage = Math.max(8, (item.value / max) * 100);
 
                     return (
                       <div key={idx} className={styles.barGroup}>
+                        <span className={styles.barValue}>
+                          {item.value >= 1000000
+                            ? (item.value / 1000000).toFixed(1) + 'M'
+                            : item.value >= 1000
+                              ? (item.value / 1000).toFixed(0) + 'K'
+                              : item.value.toLocaleString('uz-UZ')}
+                        </span>
                         <div className={styles.barTrack}>
                           <div
                             className={styles.bar}
                             style={{
                               height: `${heightPercentage}%`,
-                              backgroundColor: colors[idx],
-                              boxShadow: `0 0 15px ${colors[idx]}40`
+                              backgroundColor: item.color,
+                              boxShadow: item.glow
                             }}
                           ></div>
                         </div>
-                        <span className={styles.barLabel}>{labels[idx]}</span>
+                        <span className={styles.barLabel}>{item.label}</span>
                       </div>
                     )
                   })}
@@ -132,67 +178,51 @@ export default async function Home() {
           <div className={`glass-panel ${styles.recentTransactions}`}>
             <div className={styles.sectionHeader}>
               <h2>So'nggi Amaliyotlar</h2>
-              <a href="/transactions" className={styles.viewAll}>Hammasini ko'rish &rarr;</a>
+              <a href="/transactions" className={styles.viewAll}>Hammasini ko'rish →</a>
             </div>
 
-            <div className={styles.tableContainer}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Ta'rifi</th>
-                    <th>Kategoriya</th>
-                    <th>Sana</th>
-                    <th>Summa</th>
-                    <th>Harakat</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentTransactions.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
-                        Tranzaksiyalar mavjud emas.
-                      </td>
-                    </tr>
-                  ) : (
-                    recentTransactions.map(tx => {
-                      const dateObj = new Date(tx.date);
-                      const formattedDate = dateObj.toLocaleDateString('uz-UZ', { month: 'short', day: 'numeric', year: 'numeric' });
+            <div className={styles.txList}>
+              {recentTransactions.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <span className={styles.emptyIcon}>💸</span>
+                  <p>Tranzaksiyalar mavjud emas</p>
+                </div>
+              ) : (
+                recentTransactions.map(tx => {
+                  const dateObj = new Date(tx.date);
+                  const formattedDate = dateObj.toLocaleDateString('uz-UZ', { month: 'short', day: 'numeric' });
 
-                      let rowStyle = styles.txExpense;
-                      let badgeClass = styles.badgeExpense;
-                      let prefix = '-';
+                  let typeIcon = '🔴';
+                  let amountClass = styles.txExpense;
+                  let prefix = '-';
 
-                      if (tx.type === 'income') {
-                        rowStyle = styles.txIncome;
-                        badgeClass = styles.badgeIncome;
-                        prefix = '+';
-                      } else if (tx.type === 'savings') {
-                        rowStyle = styles.txSavings;
-                        badgeClass = styles.badgeSavings;
-                        prefix = '🏦 ';
-                      }
+                  if (tx.type === 'income') {
+                    typeIcon = '🟢';
+                    amountClass = styles.txIncome;
+                    prefix = '+';
+                  } else if (tx.type === 'savings') {
+                    typeIcon = '🏦';
+                    amountClass = styles.txSavings;
+                    prefix = '';
+                  }
 
-                      return (
-                        <tr key={tx.id} className={styles.tableRow}>
-                          <td>{tx.description || 'Izohsiz'}</td>
-                          <td>
-                            <span className={`${styles.badge} ${badgeClass}`}>
-                              {tx.categories?.name || 'Noma\'lum'}
-                            </span>
-                          </td>
-                          <td className={styles.dateCell}>{formattedDate}</td>
-                          <td className={rowStyle}>
-                            {prefix}{Math.abs(Number(tx.amount)).toLocaleString('uz-UZ')} UZS
-                          </td>
-                          <td>
-                            <DeleteButton id={tx.id} />
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+                  return (
+                    <div key={tx.id} className={styles.txRow}>
+                      <div className={styles.txIcon}>{typeIcon}</div>
+                      <div className={styles.txInfo}>
+                        <span className={styles.txDesc}>{tx.description || 'Izohsiz'}</span>
+                        <span className={styles.txMeta}>{tx.categories?.name || "Noma'lum"} • {formattedDate}</span>
+                      </div>
+                      <div className={styles.txRight}>
+                        <span className={amountClass}>
+                          {prefix}{Math.abs(Number(tx.amount)).toLocaleString('uz-UZ')} UZS
+                        </span>
+                        <DeleteButton id={tx.id} />
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </section>
